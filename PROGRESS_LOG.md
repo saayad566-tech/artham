@@ -27,3 +27,25 @@
     including a one-line `echo` probe — fails within five seconds with no logs produced,
     which is an account-level Actions limit rather than a workflow defect. Reported, not
     hidden; the local build is the verified path.
+
+## Session 2 — market research and the v2 wave
+
+1. Researched the category rather than the codebase: user base, revenue pool, competitor
+   pricing, AI metering and the DPDP Act. Recorded basis tags and named what I did not
+   check. Two market-size estimates disagreed by ~40%, so I acted on the conservative one.
+2. Concluded that "trillion dollar" cannot come from Indian retail research alone — a
+   $13B revenue pool does not produce a trillion-dollar company at any sane multiple — and
+   wrote the honest version in `STRATEGY.md` instead of a feature list.
+3. Chose four capabilities that close observed market gaps rather than gaps in my own
+   backlog: point-in-time backtesting, reverse DCF, portfolio with XIRR, and on-device
+   document retrieval.
+4. Built schema v3 with a migration path, four engines, six screens and a navigation
+   rebuild.
+5. First compile: six errors — a `@Composable` read inside a `Canvas` scope, two missing
+   imports, and three icons (`Storage`, `Download`, `Download`) that are not in the core
+   Material icon pack. All fixed.
+6. First test run: 40 of 41 passed. The single failure was my own expectation — I asserted
+   two retrieval hits where only one chunk actually contained the query terms. Corrected
+   the test, not the code.
+7. Rebuilt and verified the v2.0.0 APK: signed, v2 scheme, four ABIs, new engines present
+   in the dex.

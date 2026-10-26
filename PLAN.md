@@ -27,6 +27,22 @@ Living build plan. Status is cross-checked against the code and the build, not f
 | 21 | Compiled, signed, installable APK | done | `app-debug.apk`, v2 signed, 4 ABIs |
 | 22 | CI workflow | written, blocked | GitHub Actions fails on this account with no logs |
 
+## v2.0 — market-gap wave
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 23 | Deep market research with evidence grading | done | `STRATEGY.md` |
+| 24 | Schema v3: portfolios, transactions, prices, documents, chunks, alerts | done | `data/Db.kt`, migration path |
+| 25 | Portfolio engine: FIFO cost basis, realised/unrealised, XIRR by bisection | done | `domain/PortfolioEngine.kt` |
+| 26 | Valuation: DCF, sensitivity grid, reverse DCF, relative percentile | done | `domain/Valuation.kt` |
+| 27 | Point-in-time backtesting with quotes stripped for history | done | `domain/Backtest.kt` |
+| 28 | BM25 document index with chunking and citations | done | `domain/DocumentIndex.kt` |
+| 29 | CSV export through FileProvider | done | `data/Export.kt` |
+| 30 | Six new screens: Portfolio, Backtest, Documents, Compare, Alerts, More | done | `ui/` |
+| 31 | Company "Value" tab with editable DCF | done | `ui/CompanyScreen.kt` |
+| 32 | 19 further unit tests | done | `V2EngineTest.kt`, 41/41 total |
+| 33 | v2.0.0 APK compiled, signed, verified | done | 58 MB, versionCode 2 |
+
 ## Not in v1 (explicitly out of scope)
 
 Spreadsheet export, email alerts, announcements feed, price sync from a live source,

@@ -9,8 +9,13 @@
 - [x] Activity log written for import, boot, screen runs and model loads
 - [x] Local-only storage; no analytics, no telemetry, no upload
 - [x] Two LLM engines implemented, selectable, with honest status reporting
-- [x] 22 unit tests, all passing
+- [x] 41 unit tests, all passing
 - [x] APK compiled, signed (v2), verified, launchable activity present, 4 ABIs
+- [x] Every new screen reachable from the More hub or a company tab
+- [x] Backtest strips quotes for historical years and says so
+- [x] Retrieval limitation (lexical, not semantic) stated in the UI
+- [x] Alerts documented as user-initiated, not background
+- [x] Market research with basis tags and a named list of what was not checked
 - [x] README, research note, decisions, known issues, brain, plan written
 - [ ] CI build green — blocked by an account-level GitHub Actions limit, reported
 - [ ] Run on physical hardware — needs a device, stated in KNOWN_ISSUES

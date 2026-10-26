@@ -105,13 +105,13 @@ Application code: MIT. Model weights: whatever licence their publisher attaches.
 | Check | Result |
 |---|---|
 | `:app:assembleDebug` | BUILD SUCCESSFUL |
-| APK | `artham-1.0.0-debug.apk`, 57 MB, SHA-256 `7ee2421719a7cec480d0737be0cee126b6456e5079ff5d186328569a4a2dff16` |
+| APK | `artham-2.0.0-debug.apk`, 58 MB, SHA-256 `1e7984c2c27a012efa8f4681ae5acc4acf7aef3456183930a2075f9e32738fe3` |
 | Signature | APK Signature Scheme v2 verified, Android debug certificate |
-| Package | `in.artham.fundamentals.debug`, versionCode 1, versionName 1.0.0-debug |
+| Package | `in.artham.fundamentals.debug`, versionCode 2, versionName 2.0.0-debug |
 | SDK range | minSdk 24, targetSdk 34, compileSdk 34 |
 | Launcher | `in.artham.fundamentals.MainActivity` |
 | Native code | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (the MediaPipe LLM engine) |
-| Unit tests | 22 tests, 22 passed, 0 failed |
+| Unit tests | 41 tests, 41 passed, 0 failed |
 
 The APK is 57 MB because it carries the on-device inference engine for four architectures.
 Splitting by ABI in a release build would bring a phone download to roughly 20 MB.
@@ -128,3 +128,43 @@ is capping address space. Raise it (`ulimit -v unlimited`) and give Gradle the m
 needs; do not shrink the build. If dependency resolution fails with `UnknownHostException`
 while `curl` works, an HTTP proxy is configured through environment variables and the JVM
 is ignoring it — pass `-Dhttps.proxyHost` / `-Dhttps.proxyPort` to Gradle.
+
+
+---
+
+## Version 2.0 — what was added, and why
+
+The second wave closes the gaps the research found in the market rather than the gaps
+in my own backlog. `STRATEGY.md` has the reasoning and the sources; this is the summary.
+
+**Point-in-time backtesting.** Screener has no backtesting at all and Trendlyne sells
+200–1,200 backtests a year as a paid tier, so this is the largest unfilled demand in the
+category. Artham replays a screen year by year, truncating each company to the periods
+that existed at the time and **removing the current quote**, so a price-based metric
+returns unknown rather than leaking today's price into 2019. It reports two separate
+things: what happened to the businesses selected, and — only if you have imported price
+history — what the share price did.
+
+**Reverse DCF and sensitivity.** Rather than asking what a company is worth, the app now
+asks what growth the current price already implies, which is a claim you can disagree
+with. A 5×5 sensitivity grid over discount rate and growth sits beside it, because a
+single DCF number without one is misleading.
+
+**Portfolio with FIFO cost basis and XIRR.** Buy, sell, dividend, bonus and split
+transactions replay into positions using first-in-first-out, the convention Indian tax
+rules use for delivery trades. XIRR is solved by bisection rather than Newton-Raphson,
+because Newton diverges on the irregular sign-changing streams a real ledger produces and
+a wrong XIRR is worse than an honest null.
+
+**On-device document intelligence.** Import the text of an annual report or a concall
+transcript; the app chunks it, indexes it with BM25 and lets the local model answer from
+the retrieved passages with citations. Retrieval is lexical, not semantic — deliberately,
+because a vector index needs a second model file and BM25 can show you exactly which terms
+matched.
+
+**Alerts, comparison and export.** Saved screens re-evaluated on demand with a count
+delta, four-way company comparison on twenty metrics, and CSV export of screen results,
+statements and holdings through a FileProvider.
+
+**Navigation rebuilt around it.** Home, Screen, Portfolio, Analyst, More. The tools that
+do not need a tab live behind More, which keeps the bottom bar at five.

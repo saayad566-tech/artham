@@ -5,12 +5,15 @@ import android.content.Context
 import `in`.artham.fundamentals.core.Logx
 import `in`.artham.fundamentals.data.AiDao
 import `in`.artham.fundamentals.data.ArthamDb
+import `in`.artham.fundamentals.data.AlertDao
 import `in`.artham.fundamentals.data.CompanyDao
+import `in`.artham.fundamentals.data.DocumentDao
 import `in`.artham.fundamentals.data.DemoData
 import `in`.artham.fundamentals.data.ImportDao
 import `in`.artham.fundamentals.data.LogDao
 import `in`.artham.fundamentals.data.ModelPackDao
 import `in`.artham.fundamentals.data.ScreenDao
+import `in`.artham.fundamentals.data.PortfolioDao
 import `in`.artham.fundamentals.data.Settings
 import `in`.artham.fundamentals.data.WatchlistDao
 import `in`.artham.fundamentals.data.import.ImportService
@@ -38,6 +41,9 @@ class AppContainer(context: Context) {
     val modelPackDao = ModelPackDao(db)
     val logDao = LogDao(db)
     val importDao = ImportDao(db)
+    val portfolioDao = PortfolioDao(db)
+    val documentDao = DocumentDao(db)
+    val alertDao = AlertDao(db)
     val settings = Settings(appContext)
     val screenEngine = ScreenEngine()
     val importService = ImportService(companyDao, importDao)
@@ -56,6 +62,7 @@ class AppContainer(context: Context) {
                     if (!settings.demoAcknowledged) settings.demoAcknowledged = true
                 }
                 watchlistDao.ensureDefault()
+                portfolioDao.ensureDefault()
             } catch (e: Exception) {
                 Logx.e("Boot", "Bootstrap failed", e)
                 logDao.append("ERROR", "Boot", "Bootstrap failed: ${e.message}")

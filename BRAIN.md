@@ -14,6 +14,15 @@ Read first, written last. Keeps mistakes from repeating.
 | Wrote three test expectations from memory instead of from the specification | Derive expected values from the documented rule, not from a guess about the output. |
 | Added the extended Material icon set by habit | Check the build cost of a dependency before adding it, especially a large icon or asset pack. |
 
+## Session 2 lessons
+
+| Mistake | Rule now |
+|---|---|
+| Used `Icons.Outlined.Storage` / `Download`, which are not in the core icon pack | Check the icon exists in `material-icons-core` before using it; the extended pack is excluded for build-time reasons. |
+| Wrote a retrieval test asserting two hits when only one chunk contained the terms | Derive expected counts from the data, not from an intuition about the algorithm. |
+| Read `MaterialTheme` inside a `Canvas` draw scope again (second time) | Hoist every theme read into a local before entering a draw scope. This is now a standing rule, not a note. |
+| Left a `[cite:...]` marker inside a generated markdown file | Citation markers belong in chat replies only. Files get plain `(Source: ...)` prose. |
+
 ## Impact radius — what touches what
 
 - `MetricCatalog` is the contract for: the query language, the company page ratio list,
@@ -25,6 +34,16 @@ Read first, written last. Keeps mistakes from repeating.
   that way or the parser becomes untestable again.
 - The engine interface is the seam: a third engine means one new class and one branch in
   `LlmManager`, nothing else.
+
+## Blind spots worth a look next (v2)
+
+- The price-history importer has a schema and a lookup but no UI, so backtests cannot use
+  prices yet. That is the largest unfinished seam.
+- `PortfolioEngine` falls back to a placeholder multiple when a company has no quote. That
+  is a fabricated value in a real calculation and should become an explicit null.
+- No test covers the XLSX reader or `DemoData`.
+- The document index rebuilds tokenisation on every query; a corpus of a few hundred pages
+  is fine, thousands would need caching.
 
 ## Blind spots worth a look next
 

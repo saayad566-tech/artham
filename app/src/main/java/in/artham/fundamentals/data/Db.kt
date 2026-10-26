@@ -161,6 +161,84 @@ class ArthamDb private constructor(context: Context) :
             """.trimIndent()
         )
 
+
+        db.execSQL(
+            """
+            CREATE TABLE portfolios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                created_at INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id INTEGER NOT NULL,
+                company_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                traded_on INTEGER NOT NULL,
+                units REAL NOT NULL DEFAULT 0,
+                price REAL NOT NULL DEFAULT 0,
+                amount REAL NOT NULL DEFAULT 0,
+                notes TEXT NOT NULL DEFAULT ''
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX idx_txn_portfolio ON transactions(portfolio_id, traded_on)")
+
+        db.execSQL(
+            """
+            CREATE TABLE prices (
+                company_id INTEGER NOT NULL,
+                on_date INTEGER NOT NULL,
+                close REAL NOT NULL,
+                PRIMARY KEY(company_id, on_date)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                company_id INTEGER,
+                added_at INTEGER NOT NULL DEFAULT 0,
+                char_count INTEGER NOT NULL DEFAULT 0,
+                chunk_count INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE doc_chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doc_id INTEGER NOT NULL,
+                ord INTEGER NOT NULL,
+                body TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX idx_chunk_doc ON doc_chunks(doc_id, ord)")
+
+        db.execSQL(
+            """
+            CREATE TABLE alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                query TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                last_checked INTEGER NOT NULL DEFAULT 0,
+                last_count INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+
         db.execSQL(
             """
             CREATE TABLE activity_log (
@@ -181,6 +259,16 @@ class ArthamDb private constructor(context: Context) :
             db.execSQL("CREATE TABLE IF NOT EXISTS activity_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, level TEXT NOT NULL, tag TEXT NOT NULL, message TEXT NOT NULL)")
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_log_time ON activity_log(created_at)")
         }
+        if (oldVersion < 3) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS portfolios (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, portfolio_id INTEGER NOT NULL, company_id INTEGER NOT NULL, kind TEXT NOT NULL, traded_on INTEGER NOT NULL, units REAL NOT NULL DEFAULT 0, price REAL NOT NULL DEFAULT 0, amount REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '')")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_txn_portfolio ON transactions(portfolio_id, traded_on)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS prices (company_id INTEGER NOT NULL, on_date INTEGER NOT NULL, close REAL NOT NULL, PRIMARY KEY(company_id, on_date))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, company_id INTEGER, added_at INTEGER NOT NULL DEFAULT 0, char_count INTEGER NOT NULL DEFAULT 0, chunk_count INTEGER NOT NULL DEFAULT 0)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS doc_chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, doc_id INTEGER NOT NULL, ord INTEGER NOT NULL, body TEXT NOT NULL)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_chunk_doc ON doc_chunks(doc_id, ord)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, query TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, last_checked INTEGER NOT NULL DEFAULT 0, last_count INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0)")
+        }
     }
 
     override fun onConfigure(db: SQLiteDatabase) {
@@ -190,7 +278,7 @@ class ArthamDb private constructor(context: Context) :
 
     companion object {
         const val NAME = "artham.db"
-        const val VERSION = 2
+        const val VERSION = 3
 
         @Volatile
         private var instance: ArthamDb? = null

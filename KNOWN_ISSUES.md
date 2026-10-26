@@ -35,3 +35,21 @@
    activity) and the logic is covered by unit tests, but first-run behaviour, Compose
    layout on real screens and model loading need a device. Model loading in particular
    depends on the file the user imports.
+
+## Added in v2.0
+
+9. **Backtesting has no price data by default.** The app stores no historical prices, so
+   the default backtest answers "did the businesses grow", not "what would the share price
+   have returned". Price-history import exists in the schema but no importer UI yet. This
+   is stated in the app on every backtest run.
+10. **Survivorship in your own dataset.** If the companies you imported are the ones that
+    survived, the backtest inherits that bias. The app warns; it cannot correct it.
+11. **Document retrieval is lexical (BM25).** A question phrased in different vocabulary
+    from the document will miss. Semantic search needs an embedding model, which is a
+    second model file — deliberately out of scope.
+12. **No PDF text extraction.** Documents must be plain text. Scanned PDFs need OCR
+    first, which this app does not do.
+13. **Alerts are user-initiated.** No background worker, no notification permission. The
+    count is refreshed when you open the Alerts screen. Stated in the UI.
+14. **No broker sync.** Broker integration needs credentials, an aggregator licence and a
+    security review. Deliberately absent.
