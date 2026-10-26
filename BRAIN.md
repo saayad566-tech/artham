@@ -23,11 +23,23 @@ Read first, written last. Keeps mistakes from repeating.
 | Read `MaterialTheme` inside a `Canvas` draw scope again (second time) | Hoist every theme read into a local before entering a draw scope. This is now a standing rule, not a note. |
 | Left a `[cite:...]` marker inside a generated markdown file | Citation markers belong in chat replies only. Files get plain `(Source: ...)` prose. |
 
+## Session 3 lessons
+
+| Mistake | Rule now |
+|---|---|
+| Assumed the working tree would survive between turns | Re-check for `/scratch/work` content at the start of every turn and restore from `/scratch/saved` before writing anything. |
+| Named a local counter the same as a Boolean parameter | Never shadow a parameter with a local of a different type. The compiler catches the use, not the intent. |
+| Let a share-count assumption sit untested for three versions | Every conversion between units (crore, rupees, shares, face value) gets a test with a real payload. The 10^7 error hid for two releases because the demo data took a different branch. |
+
 ## Impact radius — what touches what
 
 - `MetricCatalog` is the contract for: the query language, the company page ratio list,
   the prompt context, and the checklist. Adding a metric is safe; renaming an `id`
   breaks saved screens, so `id` is treated as an API.
+- `SyncService` is the only class that knows a URL; `YahooProvider` the only one that knows a
+  response shape. Swapping data source means touching those two files.
+- `Financials.sharesOutstanding()` feeds book value, Graham number, DCF and portfolio
+  valuation. Any change there must re-run the end-to-end ratio test.
 - `Financials` is the only view over stored rows. Any ratio that needs a new field needs
   it added to the schema, the model, the DAO mapping and the importer together.
 - `SheetParsing` is pure and unit-tested; `ImportService` is the only caller. Keep it

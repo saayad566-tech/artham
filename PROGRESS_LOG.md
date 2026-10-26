@@ -49,3 +49,25 @@
    the test, not the code.
 7. Rebuilt and verified the v2.0.0 APK: signed, v2 scheme, four ABIs, new engines present
    in the dex.
+
+## Session 3 — live data, charts, and a recycled sandbox
+
+1. Verified the public endpoints live before writing code: the exchange master file returned
+   2,615 securities; the chart endpoint returned five years of daily bars; the fundamentals
+   endpoint returned four annual and five quarterly periods. Checked a bank and a
+   mid-cap to confirm the mapping holds across statement shapes.
+2. The sandbox was recycled mid-session and took the working tree and the toolchain with it.
+   Restored the v2 source from the saved archive, kept the new network layer, and
+   re-provisioned JDK 17, Gradle 8.9 and the Android SDK.
+3. Built the data layer: HTTP client with throttling, two parsers written as pure functions,
+   schema v4, and a resumable sync service.
+4. Built the charts on the platform Canvas: candles, volume, moving averages, P/E band,
+   stacked ownership bar.
+5. First compile: two errors, both real — a local counter shadowed a Boolean parameter.
+6. Test run: 59 tests, one failure. The end-to-end test caught a genuine latent bug:
+   `sharesOutstanding()` ignored the company's face value and dropped a factor of 10^7,
+   so book value, Graham number and DCF were wrong whenever a quote had no market cap. It
+   had been wrong since v1 and never surfaced because demo data always carried a market cap.
+   Fixed the method; all 59 pass.
+7. Built and verified the v3.0.0 APK: signed, v2 scheme, four ABIs, live-data classes present
+   in the dex.

@@ -12,8 +12,8 @@ android {
         applicationId = "in.artham.fundamentals"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "3.0.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -87,5 +87,6 @@ dependencies {
     implementation("com.google.mediapipe:tasks-genai:0.10.24")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }

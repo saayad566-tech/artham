@@ -105,13 +105,13 @@ Application code: MIT. Model weights: whatever licence their publisher attaches.
 | Check | Result |
 |---|---|
 | `:app:assembleDebug` | BUILD SUCCESSFUL |
-| APK | `artham-2.0.0-debug.apk`, 58 MB, SHA-256 `1e7984c2c27a012efa8f4681ae5acc4acf7aef3456183930a2075f9e32738fe3` |
+| APK | `artham-3.0.0-debug.apk`, 58 MB, SHA-256 `14bd23d3b1caa4e8531c373c4094aed46c92815fe1d8d3a3ab96e3d600df432b` |
 | Signature | APK Signature Scheme v2 verified, Android debug certificate |
-| Package | `in.artham.fundamentals.debug`, versionCode 2, versionName 2.0.0-debug |
+| Package | `in.artham.fundamentals.debug`, versionCode 3, versionName 3.0.0-debug |
 | SDK range | minSdk 24, targetSdk 34, compileSdk 34 |
 | Launcher | `in.artham.fundamentals.MainActivity` |
 | Native code | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (the MediaPipe LLM engine) |
-| Unit tests | 41 tests, 41 passed, 0 failed |
+| Unit tests | 59 tests, 59 passed, 0 failed |
 
 The APK is 57 MB because it carries the on-device inference engine for four architectures.
 Splitting by ABI in a release build would bring a phone download to roughly 20 MB.
@@ -168,3 +168,35 @@ statements and holdings through a FileProvider.
 
 **Navigation rebuilt around it.** Home, Screen, Portfolio, Analyst, More. The tools that
 do not need a tab live behind More, which keeps the bottom bar at five.
+
+
+---
+
+## Version 3.0 — live data and charts
+
+The gap that mattered was data. Versions 1 and 2 could analyse whatever you imported; they
+could not tell you anything about a company you had not already got a file for. That is now
+fixed, and the app behaves like the product it was measured against.
+
+**Two taps to a working app.** *Sync company list* downloads the exchange's published equity
+master — 2,615 companies with ISIN and face value. *Sync top 65* then pulls five years of
+daily prices and reported annual and quarterly fundamentals for the largest names. Each
+company is committed as it arrives, so the sync is resumable and can be stopped.
+
+**Real charts.** A candlestick chart with a volume strip, 50 and 200-day moving averages and
+a 1M/3M/1Y/3Y/5Y range selector, drawn on the platform Canvas rather than a charting
+dependency. Beside it, a P/E band against trailing reported EPS with the median and the
+20th/80th percentile drawn as reference lines — reading a multiple against its own history is
+the cheapest defence against paying a peak price for a peak multiple.
+
+**Backtesting now uses real prices.** The price-history table that v2 left without an
+importer is filled by the sync, so a backtest can report an equal-weight return and a hit
+rate instead of only describing the businesses.
+
+**Face value replaces an assumption.** Share count was previously derived by assuming a ₹10
+face value. The exchange master file supplies the real one, and a test caught a latent bug in
+that path that had been silently wrong by a factor of ten million whenever a quote lacked a
+market cap — corrupting book value, the Graham number and the DCF.
+
+`DATA_SOURCES.md` documents every endpoint, every field mapping, both derived fields, the
+rate limits and the legal position. Read it before you rely on a number.

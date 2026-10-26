@@ -15,6 +15,8 @@ import `in`.artham.fundamentals.data.ModelPackDao
 import `in`.artham.fundamentals.data.ScreenDao
 import `in`.artham.fundamentals.data.PortfolioDao
 import `in`.artham.fundamentals.data.Settings
+import `in`.artham.fundamentals.data.SyncDao
+import `in`.artham.fundamentals.data.SyncService
 import `in`.artham.fundamentals.data.WatchlistDao
 import `in`.artham.fundamentals.data.import.ImportService
 import `in`.artham.fundamentals.domain.ScreenEngine
@@ -44,6 +46,8 @@ class AppContainer(context: Context) {
     val portfolioDao = PortfolioDao(db)
     val documentDao = DocumentDao(db)
     val alertDao = AlertDao(db)
+    val syncDao = SyncDao(db)
+    val syncService = SyncService(companyDao, syncDao, importDao, logDao)
     val settings = Settings(appContext)
     val screenEngine = ScreenEngine()
     val importService = ImportService(companyDao, importDao)

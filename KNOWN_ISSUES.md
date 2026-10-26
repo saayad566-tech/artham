@@ -53,3 +53,19 @@
     count is refreshed when you open the Alerts screen. Stated in the UI.
 14. **No broker sync.** Broker integration needs credentials, an aggregator licence and a
     security review. Deliberately absent.
+
+## Added in v3.0 — data depth and scope
+
+15. **Fetched history is shallow: about four annual periods and five quarters.** A mature
+    screener shows twelve years. Deeper history must be imported; imported rows merge over
+    fetched ones.
+16. **Two fundamentals are derived, not reported:** depreciation (EBITDA − EBIT) and investing
+    cash flow (capex only). Both are documented in `DATA_SOURCES.md`.
+17. **No segment data, shareholding pattern or pledge data from the live source.** The
+    ownership tab is empty until you import it.
+18. **Stale tickers fail silently per company.** Demergers leave symbols that no longer
+    resolve; the failure is recorded and the batch continues.
+19. **The public endpoints are not a licence.** Fine for personal research on your own
+    device; distributing the app commercially needs a data licence. See `DATA_SOURCES.md`.
+20. **Still not run on hardware.** Charts, sync and model loading are verified structurally
+    and by unit test only.

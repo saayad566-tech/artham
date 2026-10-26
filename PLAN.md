@@ -43,6 +43,24 @@ Living build plan. Status is cross-checked against the code and the build, not f
 | 32 | 19 further unit tests | done | `V2EngineTest.kt`, 41/41 total |
 | 33 | v2.0.0 APK compiled, signed, verified | done | 58 MB, versionCode 2 |
 
+## v3.0 — live data wave
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 34 | Verified public endpoints for universe, prices and fundamentals | done | `DATA_SOURCES.md` |
+| 35 | HTTP client: UA, gzip, timeouts, throttle, one retry | done | `data/net/Http.kt` |
+| 36 | Exchange master parser (2,615 securities, face value) | done | `data/net/NseUniverse.kt` |
+| 37 | Yahoo chart + fundamentals parsers, pure and testable | done | `data/net/YahooProvider.kt` |
+| 38 | Schema v4: price_bars, sync_state, companies.face_value | done | `data/Db.kt` |
+| 39 | Resumable sync service with progress and cancel | done | `data/SyncService.kt` |
+| 40 | Candlestick chart, volume, 50/200 DMA, range selector | done | `ui/components/PriceChart.kt` |
+| 41 | P/E band with median and percentile reference lines | done | `PriceChart.kt` |
+| 42 | Company Price tab with sync action | done | `ui/CompanyScreen.kt` |
+| 43 | Live data controls in the Data screen | done | `ui/DataScreen.kt` |
+| 44 | First-run "get real data" onboarding | done | `ui/HomeScreen.kt` |
+| 45 | 18 further tests on real captured payloads | done | `V3EngineTest.kt`, 59/59 |
+| 46 | v3.0.0 APK compiled, signed, verified | done | 58 MB, versionCode 3 |
+
 ## Not in v1 (explicitly out of scope)
 
 Spreadsheet export, email alerts, announcements feed, price sync from a live source,

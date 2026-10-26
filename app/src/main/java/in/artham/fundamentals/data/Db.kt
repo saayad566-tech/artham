@@ -29,6 +29,7 @@ class ArthamDb private constructor(context: Context) :
                 consolidated INTEGER NOT NULL DEFAULT 1,
                 is_demo INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL DEFAULT 0,
+                face_value REAL NOT NULL DEFAULT 10,
                 UNIQUE(code, consolidated)
             )
             """.trimIndent()
@@ -239,6 +240,35 @@ class ArthamDb private constructor(context: Context) :
             """.trimIndent()
         )
 
+
+        db.execSQL(
+            """
+            CREATE TABLE price_bars (
+                company_id INTEGER NOT NULL,
+                on_date INTEGER NOT NULL,
+                open REAL NOT NULL,
+                high REAL NOT NULL,
+                low REAL NOT NULL,
+                close REAL NOT NULL,
+                volume INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(company_id, on_date)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE sync_state (
+                company_id INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                last_synced INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT '',
+                message TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY(company_id, kind)
+            )
+            """.trimIndent()
+        )
+
         db.execSQL(
             """
             CREATE TABLE activity_log (
@@ -259,6 +289,11 @@ class ArthamDb private constructor(context: Context) :
             db.execSQL("CREATE TABLE IF NOT EXISTS activity_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, level TEXT NOT NULL, tag TEXT NOT NULL, message TEXT NOT NULL)")
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_log_time ON activity_log(created_at)")
         }
+        if (oldVersion < 4) {
+            runCatching { db.execSQL("ALTER TABLE companies ADD COLUMN face_value REAL NOT NULL DEFAULT 10") }
+            db.execSQL("CREATE TABLE IF NOT EXISTS price_bars (company_id INTEGER NOT NULL, on_date INTEGER NOT NULL, open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL, volume INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(company_id, on_date))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS sync_state (company_id INTEGER NOT NULL, kind TEXT NOT NULL, last_synced INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', PRIMARY KEY(company_id, kind))")
+        }
         if (oldVersion < 3) {
             db.execSQL("CREATE TABLE IF NOT EXISTS portfolios (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0)")
             db.execSQL("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, portfolio_id INTEGER NOT NULL, company_id INTEGER NOT NULL, kind TEXT NOT NULL, traded_on INTEGER NOT NULL, units REAL NOT NULL DEFAULT 0, price REAL NOT NULL DEFAULT 0, amount REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '')")
@@ -278,7 +313,7 @@ class ArthamDb private constructor(context: Context) :
 
     companion object {
         const val NAME = "artham.db"
-        const val VERSION = 3
+        const val VERSION = 4
 
         @Volatile
         private var instance: ArthamDb? = null

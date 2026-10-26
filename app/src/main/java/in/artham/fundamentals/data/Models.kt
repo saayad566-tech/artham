@@ -10,7 +10,9 @@ data class Company(
     val about: String = "",
     val consolidated: Boolean = true,
     val isDemo: Boolean = false,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    /** Face value per share, from the exchange master file. Used to derive share count. */
+    val faceValue: Double = 10.0
 ) {
     val displayCode: String get() = code.uppercase()
 }

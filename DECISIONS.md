@@ -74,3 +74,24 @@ app, not an omission.
 ## D14 — Version 2 keeps the debug APK as the deliverable
 Still no keystore. A release build needs a signing key the user should own and control;
 shipping one generated in a sandbox would be worse than shipping a debug build.
+
+## D15 — Fetch public data rather than bundle it
+Bundling a snapshot would make the first run instant, but it means redistributing someone
+else's data, which is a licensing problem and goes stale immediately. The app ships a list of
+public ticker symbols and fetches the rest on the user's device, on demand. The cost is a
+one-minute first-run sync; the benefit is a defensible position and data that is always
+current.
+
+## D16 — Platform Canvas instead of a charting library
+A candlestick, a line and a rectangle do not justify a dependency that adds megabytes and its
+own rendering model. The chart is roughly 300 lines and the maths behind it is unit-tested.
+
+## D17 — Sync a named set, never "everything"
+A 2,615-company sync is 5,230 requests. Offering it as one button invites abuse of a public
+endpoint and a bad experience on a slow connection. The app syncs the top 65 or your
+watchlist, one company at a time, 400 ms apart, committing each as it arrives.
+
+## D18 — Imported data wins over fetched data
+When both exist for the same fiscal year, the imported row is authoritative: the user may
+have the audited filing while the endpoint carries a summary. Fetching fills gaps rather than
+overwriting judgement.

@@ -18,7 +18,8 @@ class CompanyDao(private val db: ArthamDb) {
             "about" to company.about,
             "consolidated" to company.consolidated,
             "is_demo" to company.isDemo,
-            "updated_at" to System.currentTimeMillis()
+            "updated_at" to System.currentTimeMillis(),
+            "face_value" to company.faceValue
         )
         val existing = findByCode(company.code, company.consolidated)
         return if (existing != null) {
@@ -294,7 +295,8 @@ class CompanyDao(private val db: ArthamDb) {
 
 private fun android.database.Cursor.toCompany() = Company(
     id = l("id"), code = s("code"), name = s("name"), sector = s("sector"), industry = s("industry"),
-    about = s("about"), consolidated = b("consolidated"), isDemo = b("is_demo"), updatedAt = l("updated_at")
+    about = s("about"), consolidated = b("consolidated"), isDemo = b("is_demo"), updatedAt = l("updated_at"),
+    faceValue = d("face_value") ?: 10.0
 )
 
 private fun android.database.Cursor.toAnnual(companyId: Long) = AnnualFinancial(
