@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Artham</string>
+    <string name="app_tagline">Fundamentals, on your device</string>
+    <string name="disclaimer">Artham is an educational research tool. It is not investment advice. Verify every number against the company\'s filings before acting.</string>
+</resources>
