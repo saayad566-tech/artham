@@ -1,0 +1,508 @@
+package `in`.artham.fundamentals.ui
+
+import android.app.Application
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import `in`.artham.fundamentals.artham
+import `in`.artham.fundamentals.core.Fmt
+import `in`.artham.fundamentals.data.AnnualFinancial
+import `in`.artham.fundamentals.data.Company
+import `in`.artham.fundamentals.data.CompanyRecord
+import `in`.artham.fundamentals.data.QuarterlyFinancial
+import `in`.artham.fundamentals.domain.Financials
+import `in`.artham.fundamentals.domain.Insight
+import `in`.artham.fundamentals.domain.MetricCatalog
+import `in`.artham.fundamentals.domain.ProsConsEngine
+import `in`.artham.fundamentals.domain.Ratios
+import `in`.artham.fundamentals.ui.components.BarSeries
+import `in`.artham.fundamentals.ui.components.DataTable
+import `in`.artham.fundamentals.ui.components.DemoBadge
+import `in`.artham.fundamentals.ui.components.EmptyState
+import `in`.artham.fundamentals.ui.components.KeyValueRow
+import `in`.artham.fundamentals.ui.components.MessageBanner
+import `in`.artham.fundamentals.ui.components.Pill
+import `in`.artham.fundamentals.ui.components.SectionCard
+import `in`.artham.fundamentals.ui.components.Sparkline
+import `in`.artham.fundamentals.ui.components.StatTile
+import `in`.artham.fundamentals.ui.components.Tone
+import kotlinx.coroutines.launch
+
+/** Cross-screen hand-off: which company the analyst tab should open with. */
+object AiSelection {
+    var companyId by mutableStateOf<Long?>(null)
+}
+
+data class PeerRow(val company: Company, val roe: String, val pe: String, val roce: String)
+
+data class CompanyState(
+    val loading: Boolean = true,
+    val record: CompanyRecord? = null,
+    val insights: List<Insight> = emptyList(),
+    val peers: List<PeerRow> = emptyList(),
+    val inWatchlist: Boolean = false
+)
+
+class CompanyViewModel(app: Application) : AndroidViewModel(app) {
+    private val c = app.artham()
+    var state by mutableStateOf(CompanyState())
+        private set
+
+    fun load(companyId: Long) {
+        viewModelScope.launch {
+            state = state.copy(loading = true)
+            val record = c.companyDao.recordById(companyId)
+            if (record == null) {
+                state = CompanyState(loading = false)
+                return@launch
+            }
+            val f = Financials(record)
+            val insights = ProsConsEngine.analyse(f)
+            val watchlist = c.watchlistDao.ensureDefault()
+            val peers = c.companyDao.all()
+                .filter { it.sector.isNotBlank() && it.sector == record.company.sector && it.id != record.company.id }
+                .take(8)
+                .map { peer ->
+                    val pf = Financials(c.companyDao.record(peer))
+                    PeerRow(
+                        company = peer,
+                        roe = Fmt.pct(pf.latest?.let { Ratios.roe(it) }),
+                        pe = Fmt.times(Ratios.pe(pf)),
+                        roce = Fmt.pct(pf.latest?.let { Ratios.roce(it) })
+                    )
+                }
+            state = CompanyState(
+                loading = false,
+                record = record,
+                insights = insights,
+                peers = peers,
+                inWatchlist = c.watchlistDao.contains(watchlist.id, companyId)
+            )
+        }
+    }
+
+    fun toggleWatchlist() {
+        val record = state.record ?: return
+        viewModelScope.launch {
+            val list = c.watchlistDao.ensureDefault()
+            if (state.inWatchlist) {
+                c.watchlistDao.remove(list.id, record.company.id)
+                state = state.copy(inWatchlist = false)
+            } else {
+                c.watchlistDao.add(list.id, record.company.id)
+                state = state.copy(inWatchlist = true)
+            }
+        }
+    }
+}
+
+private data class LineItem(val label: String, val values: List<String>, val tone: Tone = Tone.Neutral)
+
+private fun annualItems(annual: List<AnnualFinancial>): List<LineItem> {
+    fun line(label: String, pick: (AnnualFinancial) -> Double?, decimals: Int = 0, percent: Boolean = false) =
+        LineItem(label, annual.map { row ->
+            val v = pick(row)
+            if (percent) Fmt.pct(v) else Fmt.num(v, decimals)
+        })
+    return listOf(
+        line("Sales", { it.sales }),
+        line("Expenses", { it.expenses }),
+        line("Operating profit", { it.operatingProfit }),
+        line("OPM %", { it.opmPercent }, percent = true),
+        line("Other income", { it.otherIncome }),
+        line("Interest", { it.interest }),
+        line("Depreciation", { it.depreciation }),
+        line("Profit before tax", { it.profitBeforeTax }),
+        line("Tax %", { it.taxPercent }, percent = true),
+        line("Net profit", { it.netProfit }),
+        line("EPS", { it.eps }, decimals = 2),
+        line("Dividend", { it.dividend }, decimals = 2),
+        line("Equity capital", { it.equityCapital }),
+        line("Reserves", { it.reserves }),
+        line("Borrowings", { it.borrowings }),
+        line("Other liabilities", { it.otherLiabilities }),
+        line("Total liabilities", { it.totalLiabilities }),
+        line("Fixed assets", { it.fixedAssets }),
+        line("CWIP", { it.cwip }),
+        line("Investments", { it.investments }),
+        line("Other assets", { it.otherAssets }),
+        line("Total assets", { it.totalAssets }),
+        line("Receivables", { it.receivables }),
+        line("Inventory", { it.inventory }),
+        line("Payables", { it.payables }),
+        line("Cash from operations", { it.cfo }),
+        line("Cash from investing", { it.cfi }),
+        line("Cash from financing", { it.cff }),
+        line("Net cash flow", { it.netCashFlow })
+    )
+}
+
+private fun quarterlyItems(quarterly: List<QuarterlyFinancial>): List<LineItem> {
+    fun line(label: String, pick: (QuarterlyFinancial) -> Double?, decimals: Int = 0, percent: Boolean = false) =
+        LineItem(label, quarterly.map { row ->
+            val v = pick(row)
+            if (percent) Fmt.pct(v) else Fmt.num(v, decimals)
+        })
+    return listOf(
+        line("Sales", { it.sales }),
+        line("Expenses", { it.expenses }),
+        line("Operating profit", { it.operatingProfit }),
+        line("OPM %", { it.opmPercent }, percent = true),
+        line("Other income", { it.otherIncome }),
+        line("Interest", { it.interest }),
+        line("Depreciation", { it.depreciation }),
+        line("Profit before tax", { it.profitBeforeTax }),
+        line("Tax %", { it.taxPercent }, percent = true),
+        line("Net profit", { it.netProfit }),
+        line("EPS", { it.eps }, decimals = 2)
+    )
+}
+
+@Composable
+fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
+    val vm: CompanyViewModel = viewModel()
+    LaunchedEffect(companyId) { vm.load(companyId) }
+    val state = vm.state
+    val record = state.record
+    var tab by mutableStateOf(0)
+
+    if (record == null) {
+        LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                    }
+                    Text("Company", style = MaterialTheme.typography.titleLarge)
+                }
+                EmptyState("Company not found", "It may have been removed when the dataset was reset.")
+            }
+        }
+        return
+    }
+
+    val f = Financials(record)
+    val a = f.latest
+    val tabs = listOf("Overview", "Annual", "Quarterly", "Shareholding", "Peers")
+
+    LazyColumn(
+        Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Column(Modifier.padding(start = 8.dp, end = 16.dp, top = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(record.company.code, style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.width(8.dp))
+                            if (record.company.isDemo) DemoBadge()
+                        }
+                        Text(
+                            record.company.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { vm.toggleWatchlist() }) {
+                        Icon(
+                            if (state.inWatchlist) Icons.Outlined.Check else Icons.Outlined.Add,
+                            contentDescription = "Toggle watchlist",
+                            tint = if (state.inWatchlist) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = {
+                        AiSelection.companyId = record.company.id
+                        onOpenAi()
+                    }) {
+                        Icon(Icons.Outlined.Psychology, contentDescription = "Ask the analyst")
+                    }
+                }
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        Fmt.rupees(f.quote?.price),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    val change = f.quote?.changePercent
+                    if (change != null) {
+                        Pill(
+                            "${if (change >= 0) "+" else ""}${Fmt.pct(change)}",
+                            if (change >= 0) Tone.Positive else Tone.Negative
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    if (f.quote?.source == "demo") Pill("synthetic quote", Tone.Warning)
+                }
+            }
+        }
+
+        item {
+            ScrollableTabRow(
+                selectedTabIndex = tab,
+                edgePadding = 12.dp,
+                containerColor = MaterialTheme.colorScheme.background,
+                divider = {}
+            ) {
+                tabs.forEachIndexed { index, label ->
+                    Tab(
+                        selected = tab == index,
+                        onClick = { tab = index },
+                        text = { Text(label, style = MaterialTheme.typography.labelMedium) }
+                    )
+                }
+            }
+        }
+
+        when (tab) {
+            0 -> {
+                item {
+                    SectionCard {
+                        Row(Modifier.fillMaxWidth()) {
+                            StatTile("Market cap", Fmt.croreCompact(Ratios.marketCap(f)), Modifier.weight(1f))
+                            StatTile("P/E", Fmt.times(Ratios.pe(f)), Modifier.weight(1f))
+                            StatTile("Book value", Fmt.rupees(Ratios.bookValuePerShare(f)), Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            StatTile("ROE", Fmt.pct(a?.let { Ratios.roe(it) }), Modifier.weight(1f))
+                            StatTile("ROCE", Fmt.pct(a?.let { Ratios.roce(it) }), Modifier.weight(1f))
+                            StatTile("OPM", Fmt.pct(a?.let { Ratios.opm(it) }), Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            StatTile("Debt/Equity", Fmt.times(a?.let { Ratios.debtToEquity(it) }), Modifier.weight(1f))
+                            StatTile("Div yield", Fmt.pct(Ratios.dividendYield(f)), Modifier.weight(1f))
+                            StatTile("Piotroski", Ratios.piotroski(f)?.toString() ?: "-", Modifier.weight(1f))
+                        }
+                    }
+                }
+                if (record.company.about.isNotBlank()) {
+                    item {
+                        SectionCard(title = "About") {
+                            Text(record.company.about, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                item {
+                    SectionCard(title = "Sales and profit trend", subtitle = "Rupees crore, annual") {
+                        Text("Sales", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Sparkline(f.annual.map { it.sales })
+                        Spacer(Modifier.height(10.dp))
+                        Text("Net profit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Sparkline(f.annual.map { it.netProfit }, color = MaterialTheme.colorScheme.tertiary)
+                    }
+                }
+                item {
+                    SectionCard(title = "Checklist", subtitle = "Deterministic rules applied to the stored numbers") {
+                        val positives = state.insights.filter { it.positive }
+                        val negatives = state.insights.filterNot { it.positive }
+                        if (state.insights.isEmpty()) {
+                            Text(
+                                "Not enough history to run the checklist.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (positives.isNotEmpty()) {
+                            Text("Strengths", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            positives.forEach { insight ->
+                                Text(
+                                    "•  ${insight.text}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(vertical = 3.dp)
+                                )
+                            }
+                        }
+                        if (negatives.isNotEmpty()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text("Concerns", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                            negatives.forEach { insight ->
+                                Text(
+                                    "•  ${insight.text}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    SectionCard(title = "All computed ratios") {
+                        MetricCatalog.groups.forEach { group ->
+                            val defs = MetricCatalog.all.filter { it.group == group }
+                            val shown = defs.mapNotNull { def ->
+                                val v = runCatching { def.compute(f) }.getOrNull() ?: return@mapNotNull null
+                                def.label to Fmt.metric(v, def.unit.key)
+                            }
+                            if (shown.isNotEmpty()) {
+                                Text(
+                                    group.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+                                )
+                                shown.forEach { (label, value) -> KeyValueRow(label, value) }
+                            }
+                        }
+                    }
+                }
+            }
+            1 -> {
+                item {
+                    SectionCard(
+                        title = "Annual results",
+                        subtitle = if (f.annual.isEmpty()) "No annual rows stored" else "${f.annual.size} periods, values in Rs crore"
+                    ) {
+                        if (f.annual.isEmpty()) {
+                            EmptyState("No annual data", "Import a spreadsheet from the Data tab to populate this table.")
+                        } else {
+                            val items = annualItems(f.annual)
+                            DataTable(
+                                header = listOf("") + f.annual.map { "FY${it.fyEnd}" },
+                                rows = items.map { item -> listOf(item.label) + item.values },
+                                firstColumnWidth = 150,
+                                columnWidth = 92
+                            )
+                        }
+                    }
+                }
+                item {
+                    SectionCard(title = "Operating margin by year") {
+                        BarSeries(f.annual.map { "FY${it.fyEnd}" }, f.annual.map { it.opmPercent })
+                    }
+                }
+            }
+            2 -> {
+                item {
+                    SectionCard(
+                        title = "Quarterly results",
+                        subtitle = if (f.quarterly.isEmpty()) "No quarterly rows stored" else "${f.quarterly.size} quarters"
+                    ) {
+                        if (f.quarterly.isEmpty()) {
+                            EmptyState("No quarterly data", "Quarterly figures arrive with a spreadsheet that includes them.")
+                        } else {
+                            DataTable(
+                                header = listOf("") + f.quarterly.map { it.label },
+                                rows = quarterlyItems(f.quarterly).map { item -> listOf(item.label) + item.values },
+                                firstColumnWidth = 150,
+                                columnWidth = 92
+                            )
+                        }
+                    }
+                }
+                if (f.quarterly.isNotEmpty()) {
+                    item {
+                        SectionCard(title = "Quarterly net profit") {
+                            BarSeries(f.quarterly.map { it.label }, f.quarterly.map { it.netProfit })
+                        }
+                    }
+                }
+            }
+            3 -> {
+                item {
+                    SectionCard(title = "Shareholding pattern", subtitle = "Percent of total equity") {
+                        if (f.shareholding.isEmpty()) {
+                            EmptyState("No shareholding data", "This table needs a dataset that includes the ownership breakdown.")
+                        } else {
+                            DataTable(
+                                header = listOf("") + f.shareholding.map { it.label },
+                                rows = listOf(
+                                    listOf("Promoters") + f.shareholding.map { Fmt.pct(it.promoters) },
+                                    listOf("FII") + f.shareholding.map { Fmt.pct(it.fii) },
+                                    listOf("DII") + f.shareholding.map { Fmt.pct(it.dii) },
+                                    listOf("Government") + f.shareholding.map { Fmt.pct(it.government) },
+                                    listOf("Public") + f.shareholding.map { Fmt.pct(it.publicHolding) }
+                                ),
+                                firstColumnWidth = 150,
+                                columnWidth = 92
+                            )
+                        }
+                    }
+                }
+            }
+            else -> {
+                item {
+                    SectionCard(title = "Peers in ${record.company.sector.ifBlank { "this sector" }}") {
+                        if (state.peers.isEmpty()) {
+                            EmptyState("No peers", "Peer comparison needs more than one company in the same sector.")
+                        } else {
+                            state.peers.forEach { peer ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { AiSelection.companyId = null }
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(peer.company.code, style = MaterialTheme.typography.titleSmall)
+                                        Text(
+                                            peer.company.name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    Text(
+                                        "ROE ${peer.roe}   P/E ${peer.pe}",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                MessageBanner(
+                    "Values are computed from the data stored on this device. They are not a substitute for the audited annual report.",
+                    Tone.Neutral
+                )
+            }
+        }
+    }
+}
