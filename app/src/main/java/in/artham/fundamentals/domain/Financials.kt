@@ -47,9 +47,13 @@ class Financials(val record: CompanyRecord) {
         val price = quote?.price
         val cap = quote?.marketCap
         if (price != null && cap != null && price > 0.0) return cap / price
-        val equity = latest?.equityCapital ?: return null
-        if (equity <= 0.0) return null
-        return equity / FACE_VALUE_ASSUMED
+        val equityCrore = latest?.equityCapital ?: return null
+        if (equityCrore <= 0.0) return null
+        // Equity capital is stored in crore, so it has to be scaled back to rupees before
+        // dividing by the face value. The company's own face value is used when known; the
+        // Rs 10 fallback only applies to rows imported without one.
+        val face = company.faceValue.takeIf { it > 0.0 } ?: FACE_VALUE_ASSUMED
+        return equityCrore * 10_000_000.0 / face
     }
 
     /** Latest year TTM-style aggregate of the four most recent quarters, if present. */

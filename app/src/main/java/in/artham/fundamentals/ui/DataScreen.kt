@@ -34,7 +34,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import `in`.artham.fundamentals.artham
 import `in`.artham.fundamentals.core.Fmt
 import `in`.artham.fundamentals.data.DatasetStats
+import `in`.artham.fundamentals.data.Company
 import `in`.artham.fundamentals.data.DemoData
+import `in`.artham.fundamentals.data.SeedSymbols
 import `in`.artham.fundamentals.data.ImportBatch
 import `in`.artham.fundamentals.ui.components.EmptyState
 import `in`.artham.fundamentals.ui.components.LoadingRow
@@ -68,12 +70,116 @@ class DataViewModel(app: Application) : AndroidViewModel(app) {
     var noticeTone by mutableStateOf(Tone.Positive)
     var warnings by mutableStateOf<List<String>>(emptyList())
     var logs by mutableStateOf<List<String>>(emptyList())
+    var syncing by mutableStateOf(false)
+    var syncStage by mutableStateOf("")
+    var syncDone by mutableStateOf(0)
+    var syncTotal by mutableStateOf(0)
+    var syncFailed by mutableStateOf(0)
+    var barCount by mutableStateOf(0)
+    var companiesWithBars by mutableStateOf(0)
+    private var cancelRequested = false
+
+    fun refreshSyncStats() {
+        barCount = c.syncDao.totalBars()
+        companiesWithBars = c.syncDao.companiesWithBars()
+    }
+
+    fun cancelSync() {
+        cancelRequested = true
+        syncStage = "Stopping after the current company"
+    }
+
+    fun syncUniverse() {
+        if (syncing) return
+        viewModelScope.launch {
+            syncing = true
+            syncStage = "Downloading the exchange master file"
+            syncDone = 0; syncTotal = 0; syncFailed = 0
+            val outcome = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                c.syncService.syncUniverse()
+            }
+            outcome.onSuccess { count ->
+                notice = "Universe synced: $count listed companies are now searchable."
+                noticeTone = Tone.Positive
+            }.onFailure {
+                notice = "Universe sync failed: ${it.message}"
+                noticeTone = Tone.Negative
+            }
+            syncing = false
+            syncStage = ""
+            refresh()
+            refreshSyncStats()
+        }
+    }
+
+    private fun startBatch(companies: List<Company>, label: String) {
+        if (syncing || companies.isEmpty()) return
+        viewModelScope.launch {
+            syncing = true
+            cancelRequested = false
+            syncTotal = companies.size
+            syncDone = 0
+            syncFailed = 0
+            syncStage = label
+            val summary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                c.syncService.syncMany(
+                    companies = companies,
+                    withFundamentals = true,
+                    onProgress = { progress ->
+                        syncDone = progress.done
+                        syncTotal = progress.total
+                        syncFailed = progress.failed
+                        syncStage = if (progress.stage == "Done") "Finished" else "Syncing ${progress.detail}"
+                    },
+                    isCancelled = { cancelRequested }
+                )
+            }
+            notice = "Sync finished: ${summary.ok} companies updated, ${summary.failed} failed, ${summary.bars} price bars stored."
+            noticeTone = if (summary.ok == 0) Tone.Negative else Tone.Positive
+            syncing = false
+            syncStage = ""
+            refresh()
+            refreshSyncStats()
+        }
+    }
+
+    fun syncSeed() {
+        viewModelScope.launch {
+            val all = c.companyDao.all()
+            val byCode = all.associateBy { it.code.uppercase() }
+            val missing = SeedSymbols.liquidLargeCaps.filter { it.uppercase() !in byCode }
+            if (missing.isNotEmpty()) {
+                // create the shells first so the batch has rows to attach data to
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    for (code in missing) {
+                        c.companyDao.upsert(Company(code = code, name = code, consolidated = true, isDemo = false))
+                    }
+                }
+            }
+            val refreshed = c.companyDao.all().filter { it.code.uppercase() in SeedSymbols.liquidLargeCaps.map(String::uppercase).toSet() }
+            startBatch(refreshed, "Syncing the top ${refreshed.size} companies")
+        }
+    }
+
+    fun syncWatchlist() {
+        viewModelScope.launch {
+            val list = c.watchlistDao.ensureDefault()
+            val members = c.watchlistDao.members(list.id)
+            if (members.isEmpty()) {
+                notice = "The watchlist is empty. Add companies, or sync the top 65 first."
+                noticeTone = Tone.Warning
+                return@launch
+            }
+            startBatch(members, "Syncing ${members.size} watchlist companies")
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {
             stats = c.companyDao.stats()
             batches = c.importDao.all()
             logs = c.logDao.recent(60)
+            refreshSyncStats()
         }
     }
 
@@ -195,6 +301,59 @@ fun DataScreen(onOpenModels: () -> Unit) {
             item { MessageBanner(warning, Tone.Warning) }
         }
         if (vm.working) item { LoadingRow("Reading the file and writing to the local database") }
+
+        item {
+            SectionCard(
+                title = "Live data",
+                subtitle = "Fetched on this device from public endpoints, stored locally"
+            ) {
+                Row(Modifier.fillMaxWidth()) {
+                    `in`.artham.fundamentals.ui.components.StatTile("Price bars", vm.barCount.toString(), Modifier.weight(1f))
+                    `in`.artham.fundamentals.ui.components.StatTile("With prices", vm.companiesWithBars.toString(), Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.syncUniverse() }, enabled = !vm.syncing) {
+                        Text("Sync company list")
+                    }
+                    Button(onClick = { vm.syncSeed() }, enabled = !vm.syncing) {
+                        Text("Sync top 65")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { vm.syncWatchlist() }, enabled = !vm.syncing) {
+                        Text("Sync watchlist")
+                    }
+                    if (vm.syncing) {
+                        OutlinedButton(onClick = { vm.cancelSync() }) { Text("Stop") }
+                    }
+                }
+                if (vm.syncing || vm.syncStage.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(vm.syncStage, style = MaterialTheme.typography.labelMedium)
+                    if (vm.syncTotal > 0) {
+                        Spacer(Modifier.height(4.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { vm.syncDone.toFloat() / vm.syncTotal.toFloat() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "${vm.syncDone} of ${vm.syncTotal}${if (vm.syncFailed > 0) "  •  ${vm.syncFailed} failed" else ""}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "The company list is the exchange's published master file. Prices and fundamentals come from a public quote endpoint. Each company is saved as it arrives, so stopping halfway keeps what has already been fetched. Data is for personal research; verify anything material against the company's filings.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         item {
             SectionCard(

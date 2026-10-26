@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -251,6 +252,28 @@ fun HomeScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        if (state.stats.withQuotes == 0) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenData() }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Get real market data", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Two taps and about a minute: fetch the listed company universe, then five years of prices and reported fundamentals for the top 65 names. Everything is stored on this device.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(onClick = onOpenData) { Text("Open Data") }
                     }
                 }
             }

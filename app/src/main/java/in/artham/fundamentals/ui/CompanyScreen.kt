@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
@@ -51,6 +52,10 @@ import `in`.artham.fundamentals.data.Company
 import `in`.artham.fundamentals.data.CompanyRecord
 import `in`.artham.fundamentals.data.QuarterlyFinancial
 import `in`.artham.fundamentals.domain.DcfInputs
+import `in`.artham.fundamentals.domain.PePoint
+import `in`.artham.fundamentals.domain.PriceBar
+import `in`.artham.fundamentals.domain.PriceSeries
+import `in`.artham.fundamentals.domain.SeriesStats
 import `in`.artham.fundamentals.domain.Financials
 import `in`.artham.fundamentals.domain.Insight
 import `in`.artham.fundamentals.domain.MetricCatalog
@@ -59,6 +64,9 @@ import `in`.artham.fundamentals.domain.Ratios
 import `in`.artham.fundamentals.domain.RelativeValuation
 import `in`.artham.fundamentals.domain.Valuation
 import `in`.artham.fundamentals.ui.components.BarSeries
+import `in`.artham.fundamentals.ui.components.CandleChart
+import `in`.artham.fundamentals.ui.components.PeBandChart
+import `in`.artham.fundamentals.ui.components.StackedBar
 import `in`.artham.fundamentals.ui.components.DataTable
 import `in`.artham.fundamentals.ui.components.DemoBadge
 import `in`.artham.fundamentals.ui.components.EmptyState
@@ -84,7 +92,14 @@ data class CompanyState(
     val insights: List<Insight> = emptyList(),
     val peers: List<PeerRow> = emptyList(),
     val inWatchlist: Boolean = false,
-    val relative: RelativeValuation? = null
+    val relative: RelativeValuation? = null,
+    val bars: List<PriceBar> = emptyList(),
+    val sma50: List<Double?> = emptyList(),
+    val sma200: List<Double?> = emptyList(),
+    val peBand: List<PePoint> = emptyList(),
+    val stats: SeriesStats? = null,
+    val syncing: Boolean = false,
+    val syncMessage: String? = null
 )
 
 class CompanyViewModel(app: Application) : AndroidViewModel(app) {
@@ -118,14 +133,35 @@ class CompanyViewModel(app: Application) : AndroidViewModel(app) {
             val peerFinancials = c.companyDao.all()
                 .filter { it.sector.isNotBlank() && it.sector == record.company.sector && it.id != record.company.id }
                 .map { Financials(c.companyDao.record(it)) }
+            val bars = c.syncDao.bars(companyId)
             state = CompanyState(
                 loading = false,
                 record = record,
                 insights = insights,
                 peers = peers,
                 inWatchlist = c.watchlistDao.contains(watchlist.id, companyId),
-                relative = Valuation.relative(f, peerFinancials)
+                relative = Valuation.relative(f, peerFinancials),
+                bars = bars,
+                sma50 = PriceSeries.sma(bars, 50),
+                sma200 = PriceSeries.sma(bars, 200),
+                peBand = PriceSeries.peBand(bars, record.annual),
+                stats = PriceSeries.stats(bars)
             )
+        }
+    }
+
+    fun syncNow() {
+        val record = state.record ?: return
+        viewModelScope.launch {
+            state = state.copy(syncing = true, syncMessage = null)
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                c.syncService.syncCompany(record.company, withFundamentals = true)
+            }
+            state = state.copy(
+                syncing = false,
+                syncMessage = if (result.ok) "Synced from the public endpoint." else "Sync failed: ${result.message}"
+            )
+            load(record.company.id)
         }
     }
 
@@ -234,7 +270,7 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
 
     val f = Financials(record)
     val a = f.latest
-    val tabs = listOf("Overview", "Annual", "Quarterly", "Value", "Shareholding", "Peers")
+    val tabs = listOf("Overview", "Annual", "Quarterly", "Value", "Shareholding", "Peers", "Price")
 
     LazyColumn(
         Modifier.fillMaxWidth(),
@@ -624,6 +660,16 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                         if (f.shareholding.isEmpty()) {
                             EmptyState("No shareholding data", "This table needs a dataset that includes the ownership breakdown.")
                         } else {
+                            val latest = f.shareholding.last()
+                            StackedBar(
+                                listOf(
+                                    "Promoters" to (latest.promoters ?: 0.0),
+                                    "FII" to (latest.fii ?: 0.0),
+                                    "DII" to (latest.dii ?: 0.0),
+                                    "Public" to (latest.publicHolding ?: 0.0)
+                                )
+                            )
+                            Spacer(Modifier.height(10.dp))
                             DataTable(
                                 header = listOf("") + f.shareholding.map { it.label },
                                 rows = listOf(
@@ -635,6 +681,85 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                                 ),
                                 firstColumnWidth = 150,
                                 columnWidth = 92
+                            )
+                        }
+                    }
+                }
+            }
+            6 -> {
+                item {
+                    SectionCard(
+                        title = "Price history",
+                        subtitle = if (state.bars.isEmpty()) "No bars stored yet" else "${state.bars.size} daily bars",
+                        trailing = {
+                            Text(
+                                if (state.syncing) "Syncing..." else "Sync",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { if (!state.syncing) vm.syncNow() }
+                            )
+                        }
+                    ) {
+                        var rangeDays by remember(companyId) { mutableStateOf(365) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(30 to "1M", 90 to "3M", 365 to "1Y", 1095 to "3Y", 1825 to "5Y").forEach { (days, label) ->
+                                FilterChip(
+                                    selected = rangeDays == days,
+                                    onClick = { rangeDays = days },
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        val window = PriceSeries.since(state.bars, rangeDays)
+                        val sliced50 = state.sma50.takeLast(state.bars.size).takeLast(window.size)
+                        val sliced200 = state.sma200.takeLast(state.bars.size).takeLast(window.size)
+                        CandleChart(
+                            bars = PriceSeries.downsample(window, 260),
+                            smaShort = if (rangeDays >= 90) PriceSeries.sma(window, 50) else null,
+                            smaLong = if (rangeDays >= 365) PriceSeries.sma(window, 200) else null,
+                            showVolume = true
+                        )
+                        if (sliced50.isEmpty() && sliced200.isEmpty()) {
+                            Spacer(Modifier.height(2.dp))
+                        }
+                        if (state.syncMessage != null) {
+                            Spacer(Modifier.height(8.dp))
+                            MessageBanner(state.syncMessage!!, if (state.syncMessage!!.startsWith("Sync failed")) Tone.Negative else Tone.Positive)
+                        }
+                        if (state.bars.isEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Tap Sync to pull five years of daily prices for this company from the public quote endpoint. The request happens on this device.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                if (state.stats != null) {
+                    item {
+                        SectionCard(title = "Series statistics", subtitle = "Over the stored history") {
+                            val stats = state.stats!!
+                            KeyValueRow("Bars stored", stats.barCount.toString())
+                            KeyValueRow("Period high", Fmt.rupees(stats.periodHigh, 2))
+                            KeyValueRow("Period low", Fmt.rupees(stats.periodLow, 2))
+                            KeyValueRow("Total return", stats.changePercent?.let { Fmt.pct(it) } ?: "-",
+                                if ((stats.changePercent ?: 0.0) >= 0) Tone.Positive else Tone.Negative)
+                            KeyValueRow("Maximum drawdown", stats.maxDrawdownPercent?.let { Fmt.pct(it) } ?: "-", Tone.Negative)
+                            KeyValueRow("Average volume", Fmt.num(stats.averageVolume.toDouble(), 0))
+                        }
+                    }
+                }
+                item {
+                    SectionCard(title = "P/E band", subtitle = "Price against trailing reported EPS, with a 120-day reporting lag") {
+                        PeBandChart(state.peBand)
+                        val percentile = PriceSeries.pePercentile(state.peBand)
+                        if (percentile != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Today's multiple sits above ${Fmt.pct(percentile)} of its own history over this window.",
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
