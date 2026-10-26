@@ -7,9 +7,7 @@ import `in`.artham.fundamentals.data.CompanyDao
 import `in`.artham.fundamentals.data.ImportDao
 import `in`.artham.fundamentals.data.QuarterlyFinancial
 import java.io.File
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 
 /**
  * Reads a spreadsheet the user already owns and turns it into the local store.
@@ -37,7 +35,6 @@ class ImportService(
         val mode: String
     )
 
-    private data class Period(val label: String, val year: Int, val month: Int)
 
     fun import(file: File, displayName: String): Outcome {
         val warnings = ArrayList<String>()
@@ -61,8 +58,8 @@ class ImportService(
             val headerIdx = rows.indexOfFirst { row -> row.count { it.isNotBlank() } >= 2 }
             if (headerIdx < 0) continue
             val header = rows[headerIdx]
-            val periodCols = header.mapIndexedNotNull { i, v -> parsePeriod(v)?.let { i to it } }
-            val keys = header.map { metricKey(it) }
+            val periodCols = header.mapIndexedNotNull { i, v -> SheetParsing.parsePeriod(v)?.let { i to it } }
+            val keys = header.map { SheetParsing.metricKey(it) }
             val nameCol = header.indexOfFirst { isNameHeader(it) }
             val codeCol = header.indexOfFirst { isCodeHeader(it) }
             val periodCol = header.indexOfFirst { isPeriodColumnHeader(it) }
@@ -87,13 +84,13 @@ class ImportService(
                         val byPeriod = LinkedHashMap<Int, MutableQuarterly>()
                         for (r in (headerIdx + 1) until rows.size) {
                             val row = rows[r]
-                            val key = metricKey(row.getOrNull(labelCol) ?: "") ?: continue
+                            val key = SheetParsing.metricKey(row.getOrNull(labelCol) ?: "") ?: continue
                             for ((col, period) in periodCols) {
-                                val value = parseNumber(row.getOrNull(col)) ?: continue
-                                val q = byPeriod.getOrPut(period.year * 4 + quarterIndex(period.month)) {
+                                val value = SheetParsing.parseNumber(row.getOrNull(col)) ?: continue
+                                val q = byPeriod.getOrPut(period.year * 4 + SheetParsing.quarterIndex(period.month)) {
                                     MutableQuarterly(
                                         fyEnd = if (period.month <= 3) period.year else period.year + 1,
-                                        quarter = quarterIndex(period.month),
+                                        quarter = SheetParsing.quarterIndex(period.month),
                                         label = period.label
                                     )
                                 }
@@ -107,9 +104,9 @@ class ImportService(
                         val byPeriod = LinkedHashMap<Int, MutableAnnual>()
                         for (r in (headerIdx + 1) until rows.size) {
                             val row = rows[r]
-                            val key = metricKey(row.getOrNull(labelCol) ?: "") ?: continue
+                            val key = SheetParsing.metricKey(row.getOrNull(labelCol) ?: "") ?: continue
                             for ((col, period) in periodCols) {
-                                val value = parseNumber(row.getOrNull(col)) ?: continue
+                                val value = SheetParsing.parseNumber(row.getOrNull(col)) ?: continue
                                 byPeriod.getOrPut(period.year) { MutableAnnual(period.year) }.set(key, value)
                             }
                         }
@@ -127,14 +124,14 @@ class ImportService(
                         val row = rows[r]
                         val name = row.getOrNull(nameCol)?.trim().orEmpty()
                         if (name.isBlank()) continue
-                        val period = parsePeriod(row.getOrNull(periodCol) ?: "") ?: continue
+                        val period = SheetParsing.parsePeriod(row.getOrNull(periodCol) ?: "") ?: continue
                         val code = row.getOrNull(codeCol)?.trim()?.takeIf { it.isNotBlank() }
                             ?: name.uppercase().replace(Regex("[^A-Z0-9]"), "").take(12)
                         codes[name] = code
                         val holder = MutableAnnual(period.year)
                         for ((i, key) in keys.withIndex()) {
                             if (key == null) continue
-                            val v = parseNumber(row.getOrNull(i)) ?: continue
+                            val v = SheetParsing.parseNumber(row.getOrNull(i)) ?: continue
                             holder.set(key, v)
                         }
                         byCompany.getOrPut(name) { ArrayList() }.add(holder)
@@ -167,7 +164,7 @@ class ImportService(
                         val holder = MutableAnnual(fyEnd)
                         for ((i, key) in keys.withIndex()) {
                             if (key == null) continue
-                            val v = parseNumber(row.getOrNull(i)) ?: continue
+                            val v = SheetParsing.parseNumber(row.getOrNull(i)) ?: continue
                             holder.set(key, v)
                         }
                         companyDao.replaceAnnual(companyId, listOf(holder.toAnnual(companyId)))
@@ -196,7 +193,7 @@ class ImportService(
             val joined = row.filter { it.isNotBlank() }
             if (joined.isEmpty()) continue
             val first = joined.first()
-            if (first.length in 4..90 && !first.startsWith("http") && parseNumber(first) == null) {
+            if (first.length in 4..90 && !first.startsWith("http") && SheetParsing.parseNumber(first) == null) {
                 val looksLikeLabel = first.lowercase().replace(Regex("[^a-z ]"), "").trim() in
                     setOf("report", "date", "company", "name", "screener", "export", "generated", "as of")
                 if (!looksLikeLabel) return first
@@ -206,112 +203,18 @@ class ImportService(
     }
 
     private fun isNameHeader(s: String): Boolean {
-        val n = normalize(s)
+        val n = SheetParsing.normalize(s)
         return n == "name" || n == "company" || n == "company name" || n == "particulars" && false
     }
 
     private fun isCodeHeader(s: String): Boolean {
-        val n = normalize(s)
+        val n = SheetParsing.normalize(s)
         return n == "code" || n == "symbol" || n == "nse code" || n == "bse code" || n == "ticker"
     }
 
     private fun isPeriodColumnHeader(s: String): Boolean {
-        val n = normalize(s)
+        val n = SheetParsing.normalize(s)
         return n == "fy" || n == "year" || n == "financial year" || n == "period" || n == "fy end"
-    }
-
-    internal fun normalize(s: String): String = s.lowercase(Locale.US)
-        .replace("+", " ")
-        .replace(Regex("[^a-z0-9% ]"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-
-    /** Maps a spreadsheet row/column label onto a stored field. */
-    internal fun metricKey(label: String): String? {
-        val n = normalize(label)
-        if (n.isBlank()) return null
-        return when (n) {
-            "sales", "revenue", "sales revenue", "total revenue", "net sales", "income from operations" -> "sales"
-            "expenses", "total expenses", "operating expenses" -> "expenses"
-            "operating profit", "ebitda", "op" -> "operating_profit"
-            "opm", "opm %", "operating margin", "operating margin %", "opm percent" -> "opm_percent"
-            "other income" -> "other_income"
-            "interest", "finance cost", "interest expense" -> "interest"
-            "depreciation", "depreciation and amortisation" -> "depreciation"
-            "profit before tax", "pbt", "profit before exceptional" -> "profit_before_tax"
-            "tax %", "tax percent", "tax rate" -> "tax_percent"
-            "net profit", "profit after tax", "pat", "net profit total" -> "net_profit"
-            "eps", "eps in rs", "earnings per share", "eps rs" -> "eps"
-            "dividend", "dividend amount", "dividend per share" -> "dividend"
-            "equity capital", "share capital", "equity share capital" -> "equity_capital"
-            "reserves", "reserves and surplus" -> "reserves"
-            "borrowings", "debt", "total debt", "borrowings total" -> "borrowings"
-            "other liabilities" -> "other_liabilities"
-            "total liabilities", "total equity and liabilities" -> "total_liabilities"
-            "fixed assets", "net block", "property plant and equipment", "ppe" -> "fixed_assets"
-            "cwip", "capital work in progress" -> "cwip"
-            "investments" -> "investments"
-            "other assets" -> "other_assets"
-            "total assets" -> "total_assets"
-            "receivables", "trade receivables", "debtors" -> "receivables"
-            "inventory", "inventories" -> "inventory"
-            "payables", "trade payables", "creditors" -> "payables"
-            "cash from operating activity", "operating cash flow", "cfo", "net cash from operating activities" -> "cfo"
-            "cash from investing activity", "investing cash flow", "cfi", "net cash from investing activities" -> "cfi"
-            "cash from financing activity", "financing cash flow", "cff", "net cash from financing activities" -> "cff"
-            "net cash flow" -> "net_cash_flow"
-            else -> null
-        }
-    }
-
-    internal fun parseNumber(raw: String?): Double? {
-        if (raw == null) return null
-        var s = raw.trim()
-        if (s.isEmpty() || s == "-" || s.equals("na", true) || s.equals("n/a", true) || s.equals("null", true)) return null
-        var negative = false
-        if (s.startsWith("(") && s.endsWith(")")) {
-            negative = true
-            s = s.substring(1, s.length - 1)
-        }
-        s = s.replace(",", "").replace("\u20B9", "").replace("%", "").replace(" ", "")
-        if (s.startsWith("-")) { negative = true; s = s.substring(1) }
-        if (s.startsWith("+")) s = s.substring(1)
-        val v = s.toDoubleOrNull() ?: return null
-        return if (negative) -v else v
-    }
-
-    internal fun parsePeriod(raw: String?): Period? {
-        if (raw == null) return null
-        val s = raw.trim()
-        if (s.isEmpty()) return null
-        val up = s.uppercase(Locale.US)
-        if (up.contains("TTM") || up.contains("TRAILING")) return null
-        val months = mapOf(
-            "JAN" to 1, "FEB" to 2, "MAR" to 3, "APR" to 4, "MAY" to 5, "JUN" to 6,
-            "JUL" to 7, "AUG" to 8, "SEP" to 9, "OCT" to 10, "NOV" to 11, "DEC" to 12
-        )
-        val yearMatch = Regex("(19|20)\\d{2}").find(up)
-        val monthEntry = months.entries.firstOrNull { up.contains(it.key) }
-        if (yearMatch != null) {
-            val year = yearMatch.value.toInt()
-            return Period(s, year, monthEntry?.value ?: 3)
-        }
-        val fy = Regex("FY\\s?(\\d{2})").find(up)
-        if (fy != null) {
-            val yy = fy.groupValues[1].toInt()
-            return Period(s, 2000 + yy, 3)
-        }
-        val bare = up.toIntOrNull()
-        if (bare != null && bare in 1990..2100) return Period(s, bare, 3)
-        return null
-    }
-
-    private fun quarterIndex(month: Int): Int = when (month) {
-        6 -> 1
-        9 -> 2
-        12 -> 3
-        3 -> 4
-        else -> 1
     }
 
     // ------------------------------------------------------------- accumulators
@@ -462,7 +365,4 @@ class ImportService(
             profitBeforeTax = profitBeforeTax, taxPercent = taxPercent, netProfit = netProfit, eps = eps
         )
     }
-
-    @Suppress("unused")
-    private fun today(): String = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(java.util.Date())
 }

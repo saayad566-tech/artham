@@ -17,7 +17,7 @@ class LlmManager(
 ) {
 
     private val mediaPipe: MediaPipeEngine by lazy {
-        MediaPipeEngine(context) { packDao.active(EngineKind.MEDIAPIPE)?.path }
+        MediaPipeEngine(context) { packDao.active(EngineKind.MEDIAPIPE.name)?.path }
     }
 
     private val localServer: LocalServerEngine by lazy {

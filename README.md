@@ -97,3 +97,34 @@ APK small, and makes every query readable in one file.
 ## Licence
 
 Application code: MIT. Model weights: whatever licence their publisher attaches.
+
+---
+
+## Verified state of this build
+
+| Check | Result |
+|---|---|
+| `:app:assembleDebug` | BUILD SUCCESSFUL |
+| APK | `artham-1.0.0-debug.apk`, 57 MB, SHA-256 `7ee2421719a7cec480d0737be0cee126b6456e5079ff5d186328569a4a2dff16` |
+| Signature | APK Signature Scheme v2 verified, Android debug certificate |
+| Package | `in.artham.fundamentals.debug`, versionCode 1, versionName 1.0.0-debug |
+| SDK range | minSdk 24, targetSdk 34, compileSdk 34 |
+| Launcher | `in.artham.fundamentals.MainActivity` |
+| Native code | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (the MediaPipe LLM engine) |
+| Unit tests | 22 tests, 22 passed, 0 failed |
+
+The APK is 57 MB because it carries the on-device inference engine for four architectures.
+Splitting by ABI in a release build would bring a phone download to roughly 20 MB.
+
+### What is not verified
+
+The app has not been executed on a physical device or emulator here. First-run behaviour,
+Compose layout on real screens and model loading need hardware — see `KNOWN_ISSUES.md`.
+
+### Building on a memory-constrained machine
+
+If Gradle fails with `Could not reserve enough space` or a native malloc error, the shell
+is capping address space. Raise it (`ulimit -v unlimited`) and give Gradle the memory it
+needs; do not shrink the build. If dependency resolution fails with `UnknownHostException`
+while `curl` works, an HTTP proxy is configured through environment variables and the JVM
+is ignoring it — pass `-Dhttps.proxyHost` / `-Dhttps.proxyPort` to Gradle.

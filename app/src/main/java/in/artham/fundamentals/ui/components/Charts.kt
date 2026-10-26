@@ -100,6 +100,7 @@ fun BarSeries(
         return
     }
     val max = present.maxOf { abs(it) }.takeIf { it > 1e-9 } ?: 1.0
+    val negativeColor = MaterialTheme.colorScheme.error
     Column(modifier) {
         Canvas(Modifier.fillMaxWidth().height(96.dp)) {
             val count = values.size
@@ -117,7 +118,7 @@ fun BarSeries(
                     val fraction = (abs(raw) / max).toFloat()
                     val barHeight = (size.height * 0.82f) * fraction
                     drawRect(
-                        if (raw >= 0) color else MaterialTheme.colorScheme.error,
+                        if (raw >= 0) color else negativeColor,
                         topLeft = Offset(x, size.height * 0.82f - barHeight),
                         size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
                     )

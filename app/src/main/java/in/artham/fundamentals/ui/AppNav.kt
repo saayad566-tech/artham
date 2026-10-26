@@ -2,11 +2,10 @@ package `in`.artham.fundamentals.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,10 +41,10 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 
 private val tabs = listOf(
     Tab(Routes.HOME, "Home", Icons.Outlined.Home),
-    Tab(Routes.SCREEN, "Screen", Icons.Outlined.FilterAlt),
+    Tab(Routes.SCREEN, "Screen", Icons.Outlined.Search),
     Tab(Routes.WATCHLIST, "Lists", Icons.Outlined.Star),
-    Tab(Routes.AI, "Analyst", Icons.Outlined.Psychology),
-    Tab(Routes.DATA, "Data", Icons.Outlined.Storage)
+    Tab(Routes.AI, "Analyst", Icons.Outlined.Person),
+    Tab(Routes.DATA, "Data", Icons.Outlined.List)
 )
 
 @Composable

@@ -17,10 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -256,7 +256,7 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                         AiSelection.companyId = record.company.id
                         onOpenAi()
                     }) {
-                        Icon(Icons.Outlined.Psychology, contentDescription = "Ask the analyst")
+                        Icon(Icons.Outlined.Person, contentDescription = "Ask the analyst")
                     }
                 }
                 Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {

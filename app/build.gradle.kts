@@ -60,6 +60,9 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -75,7 +78,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.navigation:navigation-compose:2.8.4")

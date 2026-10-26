@@ -19,10 +19,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -180,7 +180,7 @@ fun ScreenBuilderScreen(onOpenCompany: (Long) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { vm.translate() }, enabled = !vm.translating && vm.natural.isNotBlank()) {
-                        Icon(Icons.Outlined.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(if (vm.translating) "Thinking" else "Build query")
                     }
@@ -205,7 +205,7 @@ fun ScreenBuilderScreen(onOpenCompany: (Long) -> Unit) {
                             Icon(Icons.Outlined.PlayArrow, contentDescription = "Run screen")
                         }
                         IconButton(onClick = { showSave = true }) {
-                            Icon(Icons.Outlined.Save, contentDescription = "Save screen")
+                            Icon(Icons.Outlined.Check, contentDescription = "Save screen")
                         }
                         IconButton(onClick = { vm.addAllToWatchlist() }) {
                             Icon(Icons.Outlined.Add, contentDescription = "Add matches to watchlist")

@@ -19,9 +19,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -299,7 +299,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Outlined.SmartToy,
+                            Icons.Outlined.Person,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -315,7 +315,7 @@ fun HomeScreen(
                             maxLines = 2
                         )
                     }
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
