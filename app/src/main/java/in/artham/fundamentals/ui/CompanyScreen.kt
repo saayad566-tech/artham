@@ -3,6 +3,8 @@ package `in`.artham.fundamentals.ui
 import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,12 +27,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +50,14 @@ import `in`.artham.fundamentals.data.AnnualFinancial
 import `in`.artham.fundamentals.data.Company
 import `in`.artham.fundamentals.data.CompanyRecord
 import `in`.artham.fundamentals.data.QuarterlyFinancial
+import `in`.artham.fundamentals.domain.DcfInputs
 import `in`.artham.fundamentals.domain.Financials
 import `in`.artham.fundamentals.domain.Insight
 import `in`.artham.fundamentals.domain.MetricCatalog
 import `in`.artham.fundamentals.domain.ProsConsEngine
 import `in`.artham.fundamentals.domain.Ratios
+import `in`.artham.fundamentals.domain.RelativeValuation
+import `in`.artham.fundamentals.domain.Valuation
 import `in`.artham.fundamentals.ui.components.BarSeries
 import `in`.artham.fundamentals.ui.components.DataTable
 import `in`.artham.fundamentals.ui.components.DemoBadge
@@ -76,7 +83,8 @@ data class CompanyState(
     val record: CompanyRecord? = null,
     val insights: List<Insight> = emptyList(),
     val peers: List<PeerRow> = emptyList(),
-    val inWatchlist: Boolean = false
+    val inWatchlist: Boolean = false,
+    val relative: RelativeValuation? = null
 )
 
 class CompanyViewModel(app: Application) : AndroidViewModel(app) {
@@ -107,12 +115,16 @@ class CompanyViewModel(app: Application) : AndroidViewModel(app) {
                         roce = Fmt.pct(pf.latest?.let { Ratios.roce(it) })
                     )
                 }
+            val peerFinancials = c.companyDao.all()
+                .filter { it.sector.isNotBlank() && it.sector == record.company.sector && it.id != record.company.id }
+                .map { Financials(c.companyDao.record(it)) }
             state = CompanyState(
                 loading = false,
                 record = record,
                 insights = insights,
                 peers = peers,
-                inWatchlist = c.watchlistDao.contains(watchlist.id, companyId)
+                inWatchlist = c.watchlistDao.contains(watchlist.id, companyId),
+                relative = Valuation.relative(f, peerFinancials)
             )
         }
     }
@@ -201,6 +213,9 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
     val state = vm.state
     val record = state.record
     var tab by mutableStateOf(0)
+    var dcfGrowth by remember(companyId) { mutableStateOf(12f) }
+    var dcfDiscount by remember(companyId) { mutableStateOf(13f) }
+    var dcfTerminal by remember(companyId) { mutableStateOf(4f) }
 
     if (record == null) {
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
@@ -219,7 +234,7 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
 
     val f = Financials(record)
     val a = f.latest
-    val tabs = listOf("Overview", "Annual", "Quarterly", "Shareholding", "Peers")
+    val tabs = listOf("Overview", "Annual", "Quarterly", "Value", "Shareholding", "Peers")
 
     LazyColumn(
         Modifier.fillMaxWidth(),
@@ -439,6 +454,171 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                 }
             }
             3 -> {
+                item {
+                    SectionCard(
+                        title = "Discounted cash flow",
+                        subtitle = "Two-stage model on free cash flow. Every input is yours to change."
+                    ) {
+                        val inputs = DcfInputs(
+                            growthRate = dcfGrowth.toDouble(),
+                            years = 5,
+                            discountRate = dcfDiscount.toDouble(),
+                            terminalGrowth = dcfTerminal.toDouble()
+                        )
+                        Text(
+                            "Growth for five years: ${String.format("%.1f", dcfGrowth)}%",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Slider(
+                            value = dcfGrowth,
+                            onValueChange = { dcfGrowth = it },
+                            valueRange = -10f..35f
+                        )
+                        Text(
+                            "Discount rate: ${String.format("%.1f", dcfDiscount)}%",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Slider(
+                            value = dcfDiscount,
+                            onValueChange = { dcfDiscount = it },
+                            valueRange = 8f..20f
+                        )
+                        Text(
+                            "Terminal growth: ${String.format("%.1f", dcfTerminal)}%",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Slider(
+                            value = dcfTerminal,
+                            onValueChange = { dcfTerminal = it },
+                            valueRange = 0f..7f
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        val dcf = Valuation.dcf(f, inputs)
+                        if (dcf == null) {
+                            Text(
+                                "This company has no positive free cash flow on the stored data, so a discounted cash flow is not meaningful. That is a finding, not an error.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            KeyValueRow("Free cash flow (base)", Fmt.cr(dcf.baseFreeCashFlow))
+                            KeyValueRow("Net debt deducted", Fmt.cr(dcf.netDebt))
+                            KeyValueRow("Value per share", Fmt.rupees(dcf.valuePerShare, 2))
+                            KeyValueRow("Market price", Fmt.rupees(dcf.price, 2))
+                            KeyValueRow(
+                                "Margin of safety",
+                                dcf.marginOfSafetyPercent?.let { Fmt.pct(it) } ?: "-",
+                                if ((dcf.marginOfSafetyPercent ?: 0.0) >= 0) Tone.Positive else Tone.Negative
+                            )
+                            KeyValueRow("Terminal value share", Fmt.pct(dcf.terminalSharePercent))
+                            if (dcf.terminalSharePercent > 75.0) {
+                                Spacer(Modifier.height(8.dp))
+                                MessageBanner(
+                                    "More than three quarters of this valuation sits in the terminal value, which means the answer depends mostly on assumptions beyond year five.",
+                                    Tone.Warning
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    SectionCard(
+                        title = "Sensitivity",
+                        subtitle = "Value per share across discount rate (rows) and growth (columns)"
+                    ) {
+                        val (growthAxis, rows) = Valuation.sensitivity(
+                            f,
+                            DcfInputs(dcfGrowth.toDouble(), 5, dcfDiscount.toDouble(), dcfTerminal.toDouble())
+                        )
+                        val scroll = rememberScrollState()
+                        Column(Modifier.horizontalScroll(scroll)) {
+                            Row(Modifier.padding(vertical = 6.dp)) {
+                                Text(
+                                    "discount \\ growth",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.width(120.dp).padding(horizontal = 6.dp)
+                                )
+                                growthAxis.forEach { growth ->
+                                    Text(
+                                        String.format("%.0f%%", growth),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(78.dp).padding(horizontal = 6.dp)
+                                    )
+                                }
+                            }
+                            rows.forEach { row ->
+                                Row(Modifier.padding(vertical = 4.dp)) {
+                                    Text(
+                                        String.format("%.1f%%", row.discountRate),
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        modifier = Modifier.width(120.dp).padding(horizontal = 6.dp)
+                                    )
+                                    row.values.forEach { value ->
+                                        Text(
+                                            Fmt.num(value, 0),
+                                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                            color = if (value == null) MaterialTheme.colorScheme.onSurfaceVariant
+                                            else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.width(78.dp).padding(horizontal = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    SectionCard(
+                        title = "Reverse DCF",
+                        subtitle = "The growth the current price already assumes"
+                    ) {
+                        val implied = Valuation.reverseDcf(
+                            f,
+                            DcfInputs(dcfGrowth.toDouble(), 5, dcfDiscount.toDouble(), dcfTerminal.toDouble())
+                        )
+                        if (implied == null) {
+                            Text(
+                                "The price is above what this model produces even at 80% growth, or there is no free cash flow to discount.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Text(
+                                "At a ${String.format("%.1f", dcfDiscount)}% discount rate, today's price implies free cash flow growth of ${String.format("%.1f", implied)}% a year for five years.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "This is the more useful direction of the model: rather than arguing about what the company is worth, it states what the market already believes, which you can then agree or disagree with.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                item {
+                    SectionCard(title = "Relative valuation", subtitle = "Against companies in the same sector") {
+                        val relative = state.relative
+                        if (relative == null || relative.peerCount < 2) {
+                            Text(
+                                "Peer ranking needs at least two other companies in the same sector with a price and earnings.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            KeyValueRow("Sector median P/E", Fmt.times(relative.medianPe))
+                            KeyValueRow("Sector median P/B", Fmt.times(relative.medianPb))
+                            KeyValueRow("This company's P/E percentile", relative.pePercentile?.let { Fmt.pct(it) } ?: "-")
+                            KeyValueRow("This company's P/B percentile", relative.pbPercentile?.let { Fmt.pct(it) } ?: "-")
+                            Spacer(Modifier.height(6.dp))
+                            Text(relative.verdict, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+            4 -> {
                 item {
                     SectionCard(title = "Shareholding pattern", subtitle = "Percent of total equity") {
                         if (f.shareholding.isEmpty()) {

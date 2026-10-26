@@ -5,6 +5,7 @@ import `in`.artham.fundamentals.data.CompanyRecord
 import `in`.artham.fundamentals.data.ScreenResult
 import `in`.artham.fundamentals.domain.Financials
 import `in`.artham.fundamentals.domain.Insight
+import `in`.artham.fundamentals.domain.RetrievedChunk
 import `in`.artham.fundamentals.domain.MetricCatalog
 import `in`.artham.fundamentals.domain.Ratios
 
@@ -118,6 +119,37 @@ Rules you must follow:
         appendLine(question.trim())
         appendLine()
         appendLine("Answer using only the context above.")
+    }
+
+
+    const val DOCUMENT_SYSTEM = """You are Artham, reading documents that live on the user's own device.
+Rules you must follow:
+1. Answer only from the PASSAGES provided. Never use outside knowledge about the company.
+2. Cite the passage number after every claim, like [1] or [2].
+3. If the passages do not answer the question, say so plainly and name what is missing.
+4. Quote figures exactly as written in the passage. Do not round or convert them.
+5. Be concise: at most 200 words.
+6. Never give a buy, sell or hold recommendation."""
+
+    /** Prompt for a question answered from retrieved document passages. */
+    fun documentPrompt(question: String, retrieved: List<RetrievedChunk>, contextLabel: String?): String = buildString {
+        appendLine("CONTEXT")
+        if (contextLabel != null) appendLine("Company in focus: $contextLabel")
+        appendLine("Passages retrieved from documents stored on this device:")
+        if (retrieved.isEmpty()) {
+            appendLine("  (none matched the question)")
+        } else {
+            retrieved.forEachIndexed { index, chunk ->
+                appendLine()
+                appendLine("[${index + 1}] ${chunk.docTitle} (part ${chunk.ord + 1})")
+                appendLine(chunk.body.trim())
+            }
+        }
+        appendLine()
+        appendLine("QUESTION")
+        appendLine(question.trim())
+        appendLine()
+        appendLine("Answer from the passages only, citing them as [1], [2] and so on.")
     }
 
     fun nlToQueryPrompt(question: String): String = buildString {

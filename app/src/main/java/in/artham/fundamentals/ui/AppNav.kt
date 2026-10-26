@@ -2,11 +2,11 @@ package `in`.artham.fundamentals.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.List
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,8 +28,14 @@ import androidx.navigation.compose.rememberNavController
 object Routes {
     const val HOME = "home"
     const val SCREEN = "screen"
-    const val WATCHLIST = "watchlist"
+    const val PORTFOLIO = "portfolio"
     const val AI = "ai"
+    const val MORE = "more"
+    const val WATCHLIST = "watchlist"
+    const val BACKTEST = "backtest"
+    const val DOCUMENTS = "documents"
+    const val COMPARE = "compare"
+    const val ALERTS = "alerts"
     const val DATA = "data"
     const val MODELS = "models"
     const val SETTINGS = "settings"
@@ -42,9 +48,9 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private val tabs = listOf(
     Tab(Routes.HOME, "Home", Icons.Outlined.Home),
     Tab(Routes.SCREEN, "Screen", Icons.Outlined.Search),
-    Tab(Routes.WATCHLIST, "Lists", Icons.Outlined.Star),
+    Tab(Routes.PORTFOLIO, "Portfolio", Icons.Outlined.List),
     Tab(Routes.AI, "Analyst", Icons.Outlined.Person),
-    Tab(Routes.DATA, "Data", Icons.Outlined.List)
+    Tab(Routes.MORE, "More", Icons.Outlined.Menu)
 )
 
 @Composable
@@ -58,10 +64,7 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (showBar) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp
-                ) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
@@ -106,18 +109,33 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
             composable(Routes.SCREEN) {
                 ScreenBuilderScreen(onOpenCompany = { nav.navigate(Routes.company(it)) })
             }
-            composable(Routes.WATCHLIST) {
-                WatchlistScreen(onOpenCompany = { nav.navigate(Routes.company(it)) })
+            composable(Routes.PORTFOLIO) {
+                PortfolioScreen(onOpenCompany = { nav.navigate(Routes.company(it)) })
             }
             composable(Routes.AI) {
                 AiScreen(onOpenCompany = { nav.navigate(Routes.company(it)) })
             }
-            composable(Routes.DATA) {
-                DataScreen(onOpenModels = { nav.navigate(Routes.MODELS) })
+            composable(Routes.MORE) {
+                MoreScreen(
+                    onOpenWatchlist = { nav.navigate(Routes.WATCHLIST) },
+                    onOpenBacktest = { nav.navigate(Routes.BACKTEST) },
+                    onOpenDocuments = { nav.navigate(Routes.DOCUMENTS) },
+                    onOpenCompare = { nav.navigate(Routes.COMPARE) },
+                    onOpenAlerts = { nav.navigate(Routes.ALERTS) },
+                    onOpenData = { nav.navigate(Routes.DATA) },
+                    onOpenModels = { nav.navigate(Routes.MODELS) },
+                    onOpenSettings = { nav.navigate(Routes.SETTINGS) }
+                )
             }
-            composable(Routes.MODELS) {
-                ModelsScreen(onBack = { nav.popBackStack() })
+            composable(Routes.WATCHLIST) {
+                WatchlistScreen(onOpenCompany = { nav.navigate(Routes.company(it)) })
             }
+            composable(Routes.BACKTEST) { BacktestScreen() }
+            composable(Routes.DOCUMENTS) { DocumentsScreen() }
+            composable(Routes.COMPARE) { CompareScreen() }
+            composable(Routes.ALERTS) { AlertsScreen() }
+            composable(Routes.DATA) { DataScreen(onOpenModels = { nav.navigate(Routes.MODELS) }) }
+            composable(Routes.MODELS) { ModelsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     darkTheme = darkTheme,
@@ -137,4 +155,3 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
         }
     }
 }
-
