@@ -83,7 +83,7 @@ class ScreenViewModel(app: Application) : AndroidViewModel(app) {
             running = true
             notice = null
             val records = c.companyDao.allRecords()
-            val out = c.screenEngine.run(query, records)
+            val out = c.screenEngine.run(query, records, barsProvider = { id -> c.syncDao.bars(id) })
             result = out
             running = false
             if (out.error != null) {

@@ -135,6 +135,123 @@ object MetricCatalog {
         }, listOf("quality")),
 
         // ----------------------------------------------------------- shareholding
+
+        // ------------------------------------------------ added in the audit wave
+        MetricDef("price_to_sales", "Price to sales", MetricUnit.TIMES, "Market", "market cap / sales", { f ->
+            val cap = Ratios.marketCap(f)
+            val sales = f.latest?.sales
+            if (cap == null || sales == null || sales <= 0.0) null else cap / sales
+        }, listOf("ps", "p/s")),
+        MetricDef("ev_ebitda", "EV / EBITDA", MetricUnit.TIMES, "Market", "(market cap + borrowings) / operating profit", { f ->
+            val cap = Ratios.marketCap(f)
+            val op = f.latest?.operatingProfit
+            if (cap == null || op == null || op <= 0.0) null else (cap + (f.latest?.borrowings ?: 0.0)) / op
+        }),
+        MetricDef("peg", "PEG ratio", MetricUnit.TIMES, "Market", "P/E divided by 3 year profit growth", { f ->
+            val pe = Ratios.pe(f)
+            val growth = cagrOver(f, 3) { ff, b -> profitOf(ff, b) }
+            if (pe == null || growth == null || growth <= 0.0) null else pe / growth
+        }, listOf("price_earnings_growth")),
+        MetricDef("earnings_yield_gap", "Earnings yield less bond", MetricUnit.PERCENT, "Market", "earnings yield minus 6.5% risk free", { f ->
+            Ratios.earningsYield(f)?.minus(6.5)
+        }),
+        MetricDef("cash_to_market_cap", "Operating cash to market cap", MetricUnit.PERCENT, "Market", "operating cash flow / market cap x 100", { f ->
+            Num.mul(Num.div(f.latest?.cfo, Ratios.marketCap(f)), 100.0)
+        }),
+
+        MetricDef("net_margin", "Net margin", MetricUnit.PERCENT, "Quality", "net profit / sales x 100", { f ->
+            val a = f.latest
+            if (a == null) null else Num.mul(Num.div(a.netProfit, a.sales), 100.0)
+        }, listOf("pat_margin")),
+        MetricDef("roic", "Return on invested capital", MetricUnit.PERCENT, "Quality", "after-tax EBIT / (net worth + borrowings)", { f ->
+            val a = f.latest
+            if (a == null) null else {
+                val ebit = Num.add(a.profitBeforeTax, a.interest)
+                val nopat = Num.mul(ebit, 0.75)
+                Num.mul(Num.div(nopat, Ratios.capitalEmployed(a)), 100.0)
+            }
+        }),
+        MetricDef("operating_leverage", "Operating leverage", MetricUnit.TIMES, "Quality", "operating profit growth / sales growth", { f ->
+            val salesNow = f.year(0)?.sales
+            val salesPrev = f.year(1)?.sales
+            val opNow = f.year(0)?.operatingProfit
+            val opPrev = f.year(1)?.operatingProfit
+            val salesGrowth = Num.growth(salesPrev, salesNow)
+            val opGrowth = Num.growth(opPrev, opNow)
+            if (salesGrowth == null || opGrowth == null || salesGrowth == 0.0) null else opGrowth / salesGrowth
+        }),
+        MetricDef("altman_z", "Altman Z-score", MetricUnit.SCORE, "Scores", "distress score; above 3 is safe, below 1.8 is distressed", { f ->
+            f.latest?.let { Ratios.altmanZ(it) }
+        }),
+        MetricDef("revenue_per_share", "Revenue per share", MetricUnit.RUPEE, "Size", "sales / shares outstanding", { f ->
+            Num.div(f.latest?.sales, f.sharesOutstanding())
+        }),
+        MetricDef("net_worth", "Net worth", MetricUnit.CRORE, "Size", "equity capital + reserves", { Ratios.netWorth(it) }),
+        MetricDef("working_capital", "Working capital", MetricUnit.CRORE, "Efficiency", "receivables + inventory - payables", { f ->
+            val a = f.latest
+            if (a == null) null
+            else (a.receivables ?: 0.0) + (a.inventory ?: 0.0) - (a.payables ?: 0.0)
+        }),
+        MetricDef("inventory_turnover", "Inventory turnover", MetricUnit.TIMES, "Efficiency", "sales / inventory", { f ->
+            Num.div(f.latest?.sales, f.latest?.inventory)
+        }),
+        MetricDef("receivable_turnover", "Receivable turnover", MetricUnit.TIMES, "Efficiency", "sales / receivables", { f ->
+            Num.div(f.latest?.sales, f.latest?.receivables)
+        }),
+        MetricDef("capex_to_sales", "Capex to sales", MetricUnit.PERCENT, "Cash", "capital expenditure / sales x 100", { f ->
+            val cfi = f.latest?.cfi
+            val sales = f.latest?.sales
+            if (cfi == null || sales == null || sales <= 0.0) null else kotlin.math.abs(cfi) / sales * 100.0
+        }),
+        MetricDef("debt_to_assets", "Debt to assets", MetricUnit.TIMES, "Leverage", "borrowings / total assets", { f ->
+            Num.div(f.latest?.borrowings, f.latest?.totalAssets)
+        }),
+        MetricDef("debt_to_ebitda", "Debt to EBITDA", MetricUnit.TIMES, "Leverage", "borrowings / operating profit", { f ->
+            Num.div(f.latest?.borrowings, f.latest?.operatingProfit)
+        }),
+        MetricDef("book_value_growth_3y", "Book value growth (3y)", MetricUnit.PERCENT, "Growth", "3 year CAGR of net worth", { f ->
+            val now = Ratios.netWorth(f)
+            val then = f.year(3)?.let { Ratios.netWorth(it) }
+            Num.cagr(then, now, 3)
+        }),
+        MetricDef("dividend_growth_3y", "Dividend growth (3y)", MetricUnit.PERCENT, "Growth", "3 year CAGR of dividend per share", { f ->
+            cagrOver(f, 3) { ff, b -> ff.year(b)?.dividend }
+        }),
+        MetricDef("asset_growth", "Asset growth (1y)", MetricUnit.PERCENT, "Growth", "year on year growth in total assets", { f ->
+            val now = f.year(0)?.totalAssets
+            val prev = f.year(1)?.totalAssets
+            Num.growth(prev, now)
+        }),
+
+        // ------------------------------------------------ technical, from price bars
+        MetricDef("rsi14", "RSI (14)", MetricUnit.SCORE, "Technical", "Wilder's relative strength index over 14 sessions", { f ->
+            Technical.rsi(f.bars).lastOrNull { it != null }
+        }, listOf("rsi")),
+        MetricDef("macd_histogram", "MACD histogram", MetricUnit.SCORE, "Technical", "MACD line minus its 9 period signal", { f ->
+            Technical.macd(f.bars).lastOrNull { it != null }?.histogram
+        }, listOf("macd")),
+        MetricDef("momentum_6m", "Momentum (6m)", MetricUnit.PERCENT, "Technical", "price change over roughly 126 sessions", { f ->
+            Technical.momentum(f.bars, 126)
+        }, listOf("momentum")),
+        MetricDef("momentum_12m", "Momentum (12m)", MetricUnit.PERCENT, "Technical", "price change over roughly 252 sessions", { f ->
+            Technical.momentum(f.bars, 252)
+        }),
+        MetricDef("distance_sma200", "Distance from 200 DMA", MetricUnit.PERCENT, "Technical", "how far price sits above or below its 200 day average", { f ->
+            Technical.distanceFromSma(f.bars, 200)
+        }, listOf("above_200dma")),
+        MetricDef("volatility", "Volatility (annualised)", MetricUnit.PERCENT, "Technical", "annualised standard deviation of daily returns", { f ->
+            Technical.annualisedVolatility(f.bars)
+        }),
+        MetricDef("volume_spike", "Volume spike", MetricUnit.TIMES, "Technical", "last session volume over its 20 day average", { f ->
+            Technical.volumeSpike(f.bars)
+        }),
+        MetricDef("bollinger_position", "Bollinger position", MetricUnit.PERCENT, "Technical", "where price sits inside its 20 day two-sigma band, 0 = lower, 100 = upper", { f ->
+            val point = Technical.bollinger(f.bars).lastOrNull { it != null }
+            val span = if (point != null) point.upper - point.lower else 0.0
+            if (point == null || span <= 0.0 || f.bars.isEmpty()) null
+            else (f.bars.last().close - point.lower) / span * 100.0
+        }),
+
         MetricDef("promoter_holding", "Promoter holding", MetricUnit.PERCENT, "Shareholding", "latest promoter stake", { it.latestShareholding?.promoters }, listOf("promoter")),
         MetricDef("fii_holding", "FII holding", MetricUnit.PERCENT, "Shareholding", "latest foreign institutional stake", { it.latestShareholding?.fii }, listOf("fii")),
         MetricDef("dii_holding", "DII holding", MetricUnit.PERCENT, "Shareholding", "latest domestic institutional stake", { it.latestShareholding?.dii }, listOf("dii")),

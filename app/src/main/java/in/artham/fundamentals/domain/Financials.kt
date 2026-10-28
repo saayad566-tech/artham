@@ -9,7 +9,7 @@ import `in`.artham.fundamentals.data.ShareholdingRow
  * Read-only view over a company's stored history with the navigation helpers
  * every metric needs. Annual rows are ascending by fiscal year.
  */
-class Financials(val record: CompanyRecord) {
+class Financials(val record: CompanyRecord, val bars: List<PriceBar> = emptyList()) {
 
     val company get() = record.company
     val annual: List<AnnualFinancial> get() = record.annual

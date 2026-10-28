@@ -14,12 +14,15 @@ data class Holding(
     val units: Double,
     val averageCost: Double,
     val invested: Double,
-    val marketValue: Double,
-    val unrealised: Double,
+    /** Null when the app has no price for this company. Never a substituted estimate. */
+    val marketValue: Double?,
+    val unrealised: Double?,
     val unrealisedPercent: Double?,
     val realised: Double,
     val dividends: Double
-)
+) {
+    val priced: Boolean get() = marketValue != null
+}
 
 data class SectorSlice(val sector: String, val value: Double, val weightPercent: Double)
 
@@ -27,6 +30,7 @@ data class PortfolioSummary(
     val holdings: List<Holding>,
     val invested: Double,
     val marketValue: Double,
+    val unpricedHoldings: Int,
     val unrealised: Double,
     val realised: Double,
     val dividends: Double,
@@ -108,31 +112,35 @@ object PortfolioEngine {
             val units = book.lots.sumOf { it.units }
             if (units <= 1e-9) return@mapNotNull null
             val cost = book.lots.sumOf { it.units * it.price }
-            val price = record.quote?.price ?: record.annual.lastOrNull()?.eps?.times(15.0) ?: 0.0
-            val value = units * price
+            // A holding with no stored quote is reported as unpriced. Substituting an
+            // assumed multiple here would put an invented number into a profit figure.
+            val price = record.quote?.price
+            val value = if (price != null && price > 0.0) units * price else null
             Holding(
                 company = record.company,
                 units = units,
                 averageCost = if (units > 0) cost / units else 0.0,
                 invested = cost,
                 marketValue = value,
-                unrealised = value - cost,
-                unrealisedPercent = if (cost > 0) (value - cost) / cost * 100.0 else null,
+                unrealised = if (value != null) value - cost else null,
+                unrealisedPercent = if (value != null && cost > 0) (value - cost) / cost * 100.0 else null,
                 realised = book.realised,
                 dividends = book.dividends
             )
-        }.sortedByDescending { it.marketValue }
+        }.sortedByDescending { it.marketValue ?: 0.0 }
 
-        val marketValue = holdings.sumOf { it.marketValue }
+        val marketValue = holdings.sumOf { it.marketValue ?: 0.0 }
         val openCost = holdings.sumOf { it.invested }
-        val unrealised = marketValue - openCost
+        val unpriced = holdings.count { it.marketValue == null }
+        val pricedCost = holdings.filter { it.marketValue != null }.sumOf { it.invested }
+        val unrealised = marketValue - pricedCost
 
         if (marketValue > 0) cashflows.add(today to marketValue)
         val xirr = xirr(cashflows)
 
         val bySector = holdings.groupBy { it.company.sector.ifBlank { "Unclassified" } }
             .map { (sector, list) ->
-                val value = list.sumOf { it.marketValue }
+                val value = list.sumOf { it.marketValue ?: 0.0 }
                 SectorSlice(sector, value, if (marketValue > 0) value / marketValue * 100.0 else 0.0)
             }
             .sortedByDescending { it.value }
@@ -142,6 +150,7 @@ object PortfolioEngine {
             holdings = holdings,
             invested = openCost,
             marketValue = marketValue,
+            unpricedHoldings = unpriced,
             unrealised = unrealised,
             realised = realisedTotal,
             dividends = dividendTotal,
@@ -192,6 +201,8 @@ object PortfolioEngine {
     }
 
     /** Total return on a single position, used in the holdings table. */
-    fun positionReturn(h: Holding): Double? = Num.div(h.marketValue - h.invested + h.realised + h.dividends, h.invested)
-        ?.times(100.0)
+    fun positionReturn(h: Holding): Double? {
+        val value = h.marketValue ?: return null
+        return Num.div(value - h.invested + h.realised + h.dividends, h.invested)?.times(100.0)
+    }
 }

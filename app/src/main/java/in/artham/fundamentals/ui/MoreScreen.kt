@@ -47,6 +47,8 @@ fun MoreScreen(
     onOpenDocuments: () -> Unit,
     onOpenCompare: () -> Unit,
     onOpenAlerts: () -> Unit,
+    onOpenCalculators: () -> Unit,
+    onOpenGlossary: () -> Unit,
     onOpenData: () -> Unit,
     onOpenModels: () -> Unit,
     onOpenSettings: () -> Unit
@@ -57,6 +59,8 @@ fun MoreScreen(
         HubEntry("Documents", "Search annual reports and transcripts on the device", Icons.Outlined.Search, onOpenDocuments),
         HubEntry("Compare", "Four companies side by side on twenty metrics", Icons.Outlined.List, onOpenCompare),
         HubEntry("Alerts", "Screen rules checked whenever you open the app", Icons.Outlined.Notifications, onOpenAlerts),
+        HubEntry("Calculators", "SIP, withdrawal, tax, position size and retirement maths", Icons.Outlined.Refresh, onOpenCalculators),
+        HubEntry("Glossary", "Every metric, its formula and the token to type", Icons.Outlined.Search, onOpenGlossary),
         HubEntry("Data", "Import spreadsheets, manage the dataset, read the activity log", Icons.Outlined.List, onOpenData),
         HubEntry("Models", "On-device model and local server configuration", Icons.Outlined.Person, onOpenModels),
         HubEntry("Settings", "Theme, generation settings, disclaimer", Icons.Outlined.Settings, onOpenSettings)

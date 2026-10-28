@@ -11,7 +11,12 @@ import `in`.artham.fundamentals.data.ScreenResult
  */
 class ScreenEngine(private val catalog: MetricCatalog = MetricCatalog) {
 
-    fun run(query: String, records: List<CompanyRecord>, limit: Int = 500): ScreenResult {
+    fun run(
+        query: String,
+        records: List<CompanyRecord>,
+        limit: Int = 500,
+        barsProvider: ((Long) -> List<PriceBar>)? = null
+    ): ScreenResult {
         val started = System.currentTimeMillis()
         val compiled = try {
             QueryCompiler.compile(query)
@@ -25,7 +30,7 @@ class ScreenEngine(private val catalog: MetricCatalog = MetricCatalog) {
         var evaluated = 0
         var skipped = 0
         for (record in records) {
-            val financials = Financials(record)
+            val financials = Financials(record, barsProvider?.invoke(record.company.id) ?: emptyList())
             if (!financials.hasData) { skipped++; continue }
             evaluated++
             val values = HashMap<String, Double?>(defs.size * 2)
@@ -51,8 +56,8 @@ class ScreenEngine(private val catalog: MetricCatalog = MetricCatalog) {
     }
 
     /** Computes one metric for one company, used by the company page and the AI context builder. */
-    fun metric(record: CompanyRecord, id: String): Double? =
-        catalog.get(id)?.compute(Financials(record))
+    fun metric(record: CompanyRecord, id: String, bars: List<PriceBar> = emptyList()): Double? =
+        catalog.get(id)?.compute(Financials(record, bars))
 
     fun metricValues(record: CompanyRecord, ids: List<String>): Map<String, Double?> {
         val f = Financials(record)

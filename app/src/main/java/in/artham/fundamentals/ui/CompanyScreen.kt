@@ -56,6 +56,7 @@ import `in`.artham.fundamentals.domain.PePoint
 import `in`.artham.fundamentals.domain.PriceBar
 import `in`.artham.fundamentals.domain.PriceSeries
 import `in`.artham.fundamentals.domain.SeriesStats
+import `in`.artham.fundamentals.domain.Technical
 import `in`.artham.fundamentals.domain.Financials
 import `in`.artham.fundamentals.domain.Insight
 import `in`.artham.fundamentals.domain.MetricCatalog
@@ -75,6 +76,7 @@ import `in`.artham.fundamentals.ui.components.MessageBanner
 import `in`.artham.fundamentals.ui.components.Pill
 import `in`.artham.fundamentals.ui.components.SectionCard
 import `in`.artham.fundamentals.ui.components.Sparkline
+import `in`.artham.fundamentals.ui.theme.ArthamColors
 import `in`.artham.fundamentals.ui.components.StatTile
 import `in`.artham.fundamentals.ui.components.Tone
 import kotlinx.coroutines.launch
@@ -243,7 +245,7 @@ private fun quarterlyItems(quarterly: List<QuarterlyFinancial>): List<LineItem> 
 }
 
 @Composable
-fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
+fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit, onOpenCompany: (Long) -> Unit = {}) {
     val vm: CompanyViewModel = viewModel()
     LaunchedEffect(companyId) { vm.load(companyId) }
     val state = vm.state
@@ -270,7 +272,7 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
 
     val f = Financials(record)
     val a = f.latest
-    val tabs = listOf("Overview", "Annual", "Quarterly", "Value", "Shareholding", "Peers", "Price")
+    val tabs = listOf("Overview", "Annual", "Quarterly", "Value", "Shareholding", "Peers", "Price", "Technical")
 
     LazyColumn(
         Modifier.fillMaxWidth(),
@@ -712,17 +714,12 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                         }
                         Spacer(Modifier.height(8.dp))
                         val window = PriceSeries.since(state.bars, rangeDays)
-                        val sliced50 = state.sma50.takeLast(state.bars.size).takeLast(window.size)
-                        val sliced200 = state.sma200.takeLast(state.bars.size).takeLast(window.size)
                         CandleChart(
                             bars = PriceSeries.downsample(window, 260),
                             smaShort = if (rangeDays >= 90) PriceSeries.sma(window, 50) else null,
                             smaLong = if (rangeDays >= 365) PriceSeries.sma(window, 200) else null,
                             showVolume = true
                         )
-                        if (sliced50.isEmpty() && sliced200.isEmpty()) {
-                            Spacer(Modifier.height(2.dp))
-                        }
                         if (state.syncMessage != null) {
                             Spacer(Modifier.height(8.dp))
                             MessageBanner(state.syncMessage!!, if (state.syncMessage!!.startsWith("Sync failed")) Tone.Negative else Tone.Positive)
@@ -765,6 +762,63 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                     }
                 }
             }
+            7 -> {
+                item {
+                    SectionCard(
+                        title = "Technical snapshot",
+                        subtitle = if (state.bars.isEmpty()) "Sync prices to populate this" else "From ${state.bars.size} daily bars"
+                    ) {
+                        val snapshot = Technical.snapshot(state.bars)
+                        if (state.bars.size < 20) {
+                            Text(
+                                "Indicators need at least twenty sessions. Sync this company's price history from the Price tab.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            KeyValueRow("RSI (14)", snapshot.rsi14?.let { Fmt.num(it, 1) } ?: "-",
+                                when {
+                                    snapshot.rsi14 == null -> Tone.Neutral
+                                    snapshot.rsi14!! >= 70 -> Tone.Negative
+                                    snapshot.rsi14!! <= 30 -> Tone.Positive
+                                    else -> Tone.Neutral
+                                })
+                            KeyValueRow("RSI reading", Technical.rsiLabel(snapshot.rsi14))
+                            KeyValueRow("MACD", snapshot.macd?.let { Fmt.num(it, 2) } ?: "-")
+                            KeyValueRow("MACD signal", snapshot.macdSignal?.let { Fmt.num(it, 2) } ?: "-")
+                            KeyValueRow("MACD histogram", snapshot.macdHistogram?.let { Fmt.num(it, 2) } ?: "-",
+                                if ((snapshot.macdHistogram ?: 0.0) >= 0) Tone.Positive else Tone.Negative)
+                            KeyValueRow("Bollinger upper", Fmt.rupees(snapshot.bollingerUpper, 2))
+                            KeyValueRow("Bollinger lower", Fmt.rupees(snapshot.bollingerLower, 2))
+                            KeyValueRow("ATR (14)", snapshot.atr14?.let { Fmt.num(it, 2) } ?: "-")
+                            KeyValueRow("Momentum 6m", snapshot.momentum6m?.let { Fmt.pct(it) } ?: "-",
+                                if ((snapshot.momentum6m ?: 0.0) >= 0) Tone.Positive else Tone.Negative)
+                            KeyValueRow("Momentum 12m", snapshot.momentum12m?.let { Fmt.pct(it) } ?: "-",
+                                if ((snapshot.momentum12m ?: 0.0) >= 0) Tone.Positive else Tone.Negative)
+                            KeyValueRow("Distance from 200 DMA", snapshot.distanceFromSma200?.let { Fmt.pct(it) } ?: "-")
+                            KeyValueRow("Annualised volatility", snapshot.annualisedVolatility?.let { Fmt.pct(it) } ?: "-")
+                            KeyValueRow("Volume vs 20 day average", snapshot.volumeSpikeRatio?.let { Fmt.times(it) } ?: "-")
+                        }
+                    }
+                }
+                if (state.bars.size >= 20) {
+                    item {
+                        SectionCard(title = "RSI (14) history", subtitle = "Above 70 is conventionally overbought, below 30 oversold") {
+                            val rsiSeries = Technical.rsi(state.bars).takeLast(180)
+                            Sparkline(rsiSeries, color = ArthamColors.Sky)
+                        }
+                    }
+                    item {
+                        SectionCard(title = "MACD histogram", subtitle = "Positive means the short average is above the long one") {
+                            val macd = Technical.macd(state.bars).takeLast(120)
+                            BarSeries(
+                                labels = macd.map { "" },
+                                values = macd.map { it?.histogram }
+                            )
+                        }
+                    }
+                }
+            }
             else -> {
                 item {
                     SectionCard(title = "Peers in ${record.company.sector.ifBlank { "this sector" }}") {
@@ -775,7 +829,7 @@ fun CompanyScreen(companyId: Long, onBack: () -> Unit, onOpenAi: () -> Unit) {
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .clickable { AiSelection.companyId = null }
+                                        .clickable { onOpenCompany(peer.company.id) }
                                         .padding(vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {

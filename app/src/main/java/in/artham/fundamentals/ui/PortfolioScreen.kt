@@ -49,6 +49,7 @@ import `in`.artham.fundamentals.data.Export
 import `in`.artham.fundamentals.data.Txn
 import `in`.artham.fundamentals.data.TxnKind
 import `in`.artham.fundamentals.domain.PortfolioSummary
+import `in`.artham.fundamentals.domain.PortfolioAnalytics
 import `in`.artham.fundamentals.domain.PortfolioEngine
 import `in`.artham.fundamentals.ui.components.EmptyState
 import `in`.artham.fundamentals.ui.components.KeyValueRow
@@ -203,6 +204,13 @@ fun PortfolioScreen(onOpenCompany: (Long) -> Unit) {
                     KeyValueRow("Total gain", Fmt.cr(summary.totalGain),
                         if (summary.totalGain >= 0) Tone.Positive else Tone.Negative)
                     KeyValueRow("Total gain %", summary.totalGainPercent?.let { Fmt.pct(it) } ?: "-")
+                    if (summary.unpricedHoldings > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        MessageBanner(
+                            "${summary.unpricedHoldings} holding(s) have no stored price, so they are excluded from value and unrealised profit rather than being given an invented valuation. Open the company and tap Sync on its Price tab.",
+                            Tone.Warning
+                        )
+                    }
                     if (summary.xirr == null) {
                         Text(
                             "XIRR needs at least one purchase and one later value. Add dated transactions to see it.",
@@ -242,10 +250,14 @@ fun PortfolioScreen(onOpenCompany: (Long) -> Unit) {
                                         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
                                     )
                                     Text(
-                                        holding.unrealisedPercent?.let { Fmt.pct(it) } ?: "-",
+                                        if (!holding.priced) "no price"
+                                        else holding.unrealisedPercent?.let { Fmt.pct(it) } ?: "-",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (holding.unrealised >= 0) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.error
+                                        color = when {
+                                            !holding.priced -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            (holding.unrealised ?: 0.0) >= 0 -> MaterialTheme.colorScheme.primary
+                                            else -> MaterialTheme.colorScheme.error
+                                        }
                                     )
                                 }
                             }
@@ -254,6 +266,34 @@ fun PortfolioScreen(onOpenCompany: (Long) -> Unit) {
                 }
             }
 
+            val concentration = PortfolioAnalytics.concentration(summary)
+            if (concentration != null) {
+                item {
+                    SectionCard(title = "Concentration", subtitle = "How much of the outcome rides on one position") {
+                        KeyValueRow("Positions priced", summary.holdings.count { it.priced }.toString())
+                        KeyValueRow("Largest position", Fmt.pct(concentration.topWeightPercent))
+                        KeyValueRow("Top five", Fmt.pct(concentration.topFiveWeightPercent))
+                        KeyValueRow("Effective holdings", String.format("%.1f", concentration.effectiveHoldings))
+                        KeyValueRow("Herfindahl index", String.format("%.3f", concentration.herfindahl))
+                        Spacer(Modifier.height(6.dp))
+                        Text(concentration.reading, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            val contributions = PortfolioAnalytics.contributions(summary)
+            if (contributions.isNotEmpty()) {
+                item {
+                    SectionCard(title = "Contribution to unrealised profit") {
+                        contributions.take(6).forEach { contribution ->
+                            KeyValueRow(
+                                "${contribution.company}  ${Fmt.pct(contribution.sharePercent)}",
+                                Fmt.cr(contribution.gain),
+                                if (contribution.gain >= 0) Tone.Positive else Tone.Negative
+                            )
+                        }
+                    }
+                }
+            }
             if (summary.allocation.isNotEmpty()) {
                 item {
                     SectionCard(title = "Allocation by sector") {

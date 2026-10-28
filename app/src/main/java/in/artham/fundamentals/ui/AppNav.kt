@@ -36,6 +36,8 @@ object Routes {
     const val DOCUMENTS = "documents"
     const val COMPARE = "compare"
     const val ALERTS = "alerts"
+    const val CALCULATORS = "calculators"
+    const val GLOSSARY = "glossary"
     const val DATA = "data"
     const val MODELS = "models"
     const val SETTINGS = "settings"
@@ -122,6 +124,8 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
                     onOpenDocuments = { nav.navigate(Routes.DOCUMENTS) },
                     onOpenCompare = { nav.navigate(Routes.COMPARE) },
                     onOpenAlerts = { nav.navigate(Routes.ALERTS) },
+                    onOpenCalculators = { nav.navigate(Routes.CALCULATORS) },
+                    onOpenGlossary = { nav.navigate(Routes.GLOSSARY) },
                     onOpenData = { nav.navigate(Routes.DATA) },
                     onOpenModels = { nav.navigate(Routes.MODELS) },
                     onOpenSettings = { nav.navigate(Routes.SETTINGS) }
@@ -134,6 +138,8 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
             composable(Routes.DOCUMENTS) { DocumentsScreen() }
             composable(Routes.COMPARE) { CompareScreen() }
             composable(Routes.ALERTS) { AlertsScreen() }
+            composable(Routes.CALCULATORS) { CalculatorsScreen() }
+            composable(Routes.GLOSSARY) { GlossaryScreen() }
             composable(Routes.DATA) { DataScreen(onOpenModels = { nav.navigate(Routes.MODELS) }) }
             composable(Routes.MODELS) { ModelsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SETTINGS) {
@@ -149,7 +155,8 @@ fun RootNav(darkTheme: Boolean, onToggleTheme: () -> Unit) {
                 CompanyScreen(
                     companyId = id,
                     onBack = { nav.popBackStack() },
-                    onOpenAi = { nav.navigate(Routes.AI) { launchSingleTop = true } }
+                    onOpenAi = { nav.navigate(Routes.AI) { launchSingleTop = true } },
+                    onOpenCompany = { id -> nav.navigate(Routes.company(id)) }
                 )
             }
         }

@@ -89,7 +89,7 @@ class AlertsViewModel(app: Application) : AndroidViewModel(app) {
             val records = c.companyDao.allRecords()
             var changed = 0
             for (rule in rules.filter { it.enabled }) {
-                val result = c.screenEngine.run(rule.query, records)
+                val result = c.screenEngine.run(rule.query, records, barsProvider = { id -> c.syncDao.bars(id) })
                 val count = result.hits.size
                 if (count != rule.lastCount) changed++
                 c.alertDao.setResult(rule.id, count)

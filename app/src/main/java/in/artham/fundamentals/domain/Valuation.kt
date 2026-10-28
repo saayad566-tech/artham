@@ -1,6 +1,5 @@
 package `in`.artham.fundamentals.domain
 
-import `in`.artham.fundamentals.core.Num
 import kotlin.math.pow
 
 data class DcfInputs(
@@ -172,7 +171,4 @@ object Valuation {
         val terminalValue = result.pvTerminal * (1 + base.discountRate / 100.0).pow(base.years.toDouble())
         return terminalValue / ebitda
     }
-
-    @Suppress("unused")
-    private fun growthGuard(value: Double?): Double? = Num.div(value, 1.0)
 }

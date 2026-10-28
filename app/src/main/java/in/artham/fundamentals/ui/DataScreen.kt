@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -76,12 +80,55 @@ class DataViewModel(app: Application) : AndroidViewModel(app) {
     var syncTotal by mutableStateOf(0)
     var syncFailed by mutableStateOf(0)
     var barCount by mutableStateOf(0)
+    var snapshotYearText by mutableStateOf("")
+    var priceTarget by mutableStateOf<Company?>(null)
+    var companies by mutableStateOf<List<Company>>(emptyList())
+    var failures by mutableStateOf<List<`in`.artham.fundamentals.data.SyncDao.Failure>>(emptyList())
     var companiesWithBars by mutableStateOf(0)
     private var cancelRequested = false
 
     fun refreshSyncStats() {
         barCount = c.syncDao.totalBars()
         companiesWithBars = c.syncDao.companiesWithBars()
+        failures = c.syncDao.failures()
+        companies = c.companyDao.all()
+    }
+
+    fun importPrices(uri: android.net.Uri, name: String) {
+        val company = priceTarget ?: return
+        viewModelScope.launch {
+            working = true
+            notice = null
+            warnings = emptyList()
+            try {
+                val context = getApplication<Application>()
+                val dir = java.io.File(context.cacheDir, "imports").apply { mkdirs() }
+                val local = java.io.File(dir, name.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    local.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw IllegalStateException("The file could not be opened.")
+                val outcome = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    c.importService.importPrices(local, name) { time, open, high, low, close, volume ->
+                        c.syncDao.upsertBars(
+                            company.id,
+                            listOf(`in`.artham.fundamentals.domain.PriceBar(time, open, high, low, close, volume))
+                        )
+                    }
+                }
+                warnings = outcome.warnings
+                notice = if (outcome.bars == 0) "No price bars were imported from $name."
+                else "Imported ${outcome.bars} price bars for ${company.code} (${outcome.from} to ${outcome.to})."
+                noticeTone = if (outcome.bars == 0) Tone.Warning else Tone.Positive
+                local.delete()
+            } catch (e: Exception) {
+                notice = "Price import failed: ${e.message}"
+                noticeTone = Tone.Negative
+            } finally {
+                working = false
+                refresh()
+                refreshSyncStats()
+            }
+        }
     }
 
     fun cancelSync() {
@@ -194,7 +241,7 @@ class DataViewModel(app: Application) : AndroidViewModel(app) {
                 getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
                     local.outputStream().use { output -> input.copyTo(output) }
                 } ?: throw IllegalStateException("The file could not be opened.")
-                val outcome = c.importService.import(local, name)
+                val outcome = c.importService.import(local, name, snapshotYearText.trim().toIntOrNull())
                 warnings = outcome.warnings
                 notice = if (outcome.companies == 0) {
                     "Nothing was imported from $name."
@@ -261,6 +308,12 @@ fun DataScreen(onOpenModels: () -> Unit) {
         if (uri != null) {
             val context = vm.getApplication<Application>()
             vm.import(uri, context.displayName(uri))
+        }
+    }
+    val pricePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val context = vm.getApplication<Application>()
+            vm.importPrices(uri, context.displayName(uri))
         }
     }
 
@@ -381,6 +434,86 @@ fun DataScreen(onOpenModels: () -> Unit) {
                             Text("Remove demo companies")
                         }
                     }
+                }
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "Import price history",
+                subtitle = "date,close or date,open,high,low,close,volume — fills the chart and enables price-based backtests"
+            ) {
+                if (vm.companies.isEmpty()) {
+                    Text(
+                        "Sync the company list first so there is something to attach prices to.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        vm.priceTarget?.let { "Target: ${it.code} — ${it.name}" } ?: "Pick the company these prices belong to",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (vm.priceTarget == null) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(vm.companies.take(80)) { company ->
+                            FilterChip(
+                                selected = vm.priceTarget?.id == company.id,
+                                onClick = { vm.priceTarget = company },
+                                label = { Text(company.code, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { pricePicker.launch(arrayOf("text/*", "*/*")) },
+                        enabled = !vm.working && vm.priceTarget != null
+                    ) { Text("Choose price file") }
+                }
+            }
+        }
+
+        item {
+            SectionCard(title = "Snapshot import year", subtitle = "Used when a spreadsheet has no period column") {
+                OutlinedTextField(
+                    value = vm.snapshotYearText,
+                    onValueChange = { vm.snapshotYearText = it },
+                    label = { Text("Fiscal year, for example 2025") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Leave it blank and the app assumes the previous calendar year, and says so in the import warnings. Setting it explicitly removes the guess.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (vm.failures.isNotEmpty()) {
+            item {
+                SectionCard(title = "Sync failures", subtitle = "${vm.failures.size} companies could not be fetched") {
+                    vm.failures.take(12).forEach { failure ->
+                        val company = vm.companies.firstOrNull { it.id == failure.companyId }
+                        Text(
+                            "${company?.code ?: failure.companyId}: ${failure.message.ifBlank { "no detail recorded" }}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 3.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Delisted or renamed tickers fail this way. The batch continues rather than stopping.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

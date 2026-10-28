@@ -93,6 +93,113 @@ object Templates {
             "promoter_holding > 50 AND promoter_change > -0.5 AND roe > 12",
             "Indian-market ownership screen; promoter holding is a locally specific signal."
         ),
+
+        ScreenTemplate(
+            "momentum_leaders",
+            "Momentum leaders",
+            "Price above its 200 day average with strong twelve month momentum and a firm RSI.",
+            "distance_sma200 > 0 AND momentum_12m > 25 AND rsi14 > 50 AND rsi14 < 75",
+            "Trend-following screen after the Darvas and O'Neil tradition; requires synced prices."
+        ),
+        ScreenTemplate(
+            "oversold_quality",
+            "Oversold quality",
+            "Good businesses whose price has been hit: low RSI but intact returns on capital.",
+            "rsi14 < 35 AND roe > 15 AND debt_to_equity < 0.6",
+            "Mean-reversion on quality; the fundamental filter is what separates this from catching falling knives."
+        ),
+        ScreenTemplate(
+            "macd_crossover",
+            "MACD turning up",
+            "Positive MACD histogram, meaning the short average has just crossed above the long one.",
+            "macd_histogram > 0 AND momentum_6m > 0",
+            "Classic MACD signal, computed from stored daily bars."
+        ),
+        ScreenTemplate(
+            "low_volatility",
+            "Low volatility compounders",
+            "Steady businesses with below-market price volatility and high returns on capital.",
+            "volatility < 25 AND roce > 18 AND debt_to_equity < 0.4",
+            "Low-volatility anomaly, the factor with the longest published record."
+        ),
+        ScreenTemplate(
+            "roic_compounders",
+            "High ROIC",
+            "Returns on invested capital well above the cost of capital.",
+            "roic > 20 AND operating_leverage > 1 AND net_margin > 10",
+            "ROIC is the cleanest test of whether growth creates or destroys value."
+        ),
+        ScreenTemplate(
+            "distress_watch",
+            "Distress watch",
+            "Altman Z below the distress line with high leverage: a list to avoid, not to buy.",
+            "altman_z < 1.8 AND debt_to_assets > 0.3",
+            "Altman (1968) Z-score; kept as a warning screen rather than a source of ideas."
+        ),
+        ScreenTemplate(
+            "safe_balance_sheet",
+            "Fortress balance sheets",
+            "Almost no debt, strong interest cover and cash-backed profits.",
+            "debt_to_ebitda < 1 AND interest_coverage > 8 AND cfo_to_op > 80",
+            "Leverage screen; the kind of balance sheet that survives a credit squeeze."
+        ),
+        ScreenTemplate(
+            "sales_efficiency",
+            "Working capital machines",
+            "Fast receivables and inventory turns with a short cash cycle.",
+            "receivable_turnover > 6 AND inventory_turnover > 6 AND ccc < 45",
+            "Efficiency screen; high turnover businesses compound with little extra capital."
+        ),
+        ScreenTemplate(
+            "cash_yield",
+            "Cash yield",
+            "Operating cash flow that is large relative to the market price.",
+            "cash_to_market_cap > 8 AND pe < 20 AND debt_to_equity < 1",
+            "Cash-based value screen; harder to manipulate than earnings."
+        ),
+        ScreenTemplate(
+            "peg_reasonable",
+            "Growth at a fair PEG",
+            "Paying less than one and a half times growth for the earnings multiple.",
+            "peg > 0 AND peg < 1.5 AND profit_growth_3y > 12",
+            "PEG ratio, popularised by Peter Lynch."
+        ),
+        ScreenTemplate(
+            "dividend_growers",
+            "Rising dividends",
+            "Dividends growing while the payout stays sustainable.",
+            "dividend_growth_3y > 10 AND dividend_yield > 1.5 AND dividend_yield < 6",
+            "Dividend growth is a stronger quality signal than dividend level."
+        ),
+        ScreenTemplate(
+            "asset_light",
+            "Asset-light compounders",
+            "High returns on capital with low capital expenditure intensity.",
+            "capex_to_sales < 5 AND roce > 20 AND opm > 15",
+            "Capital-light businesses convert growth into cash rather than into plant."
+        ),
+        ScreenTemplate(
+            "revenue_productivity",
+            "Revenue per share growth",
+            "Revenue per share high and growing, so growth is not just dilution.",
+            "revenue_per_share > 100 AND sales_growth_3y > 12 AND eps_growth_3y > 10",
+            "Guards against growth funded by issuing shares."
+        ),
+        ScreenTemplate(
+            "quality_at_discount",
+            "Quality at a discount",
+            "Strong returns and cash conversion, trading below its own sector's earnings multiple.",
+            "roce > 18 AND cfo_to_op > 80 AND pe < 18 AND debt_to_equity < 0.6",
+            "Combines the quality and value factors, which have historically worked better together than alone."
+        ),
+        ScreenTemplate(
+            "turnaround_momentum",
+            "Turnaround with momentum",
+            "Profitable, improving margins and the price already confirming it.",
+            "net_profit > 0 AND opm > 12 AND momentum_6m > 10 AND rsi14 > 50",
+            "Requires both the fundamental turn and the market's agreement."
+        ),
+
         ScreenTemplate(
             "working_capital_tight",
             "Tight working capital",
