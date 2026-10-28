@@ -31,6 +31,14 @@ Read first, written last. Keeps mistakes from repeating.
 | Named a local counter the same as a Boolean parameter | Never shadow a parameter with a local of a different type. The compiler catches the use, not the intent. |
 | Let a share-count assumption sit untested for three versions | Every conversion between units (crore, rupees, shares, face value) gets a test with a real payload. The 10^7 error hid for two releases because the demo data took a different branch. |
 
+## Session 4 lessons
+
+| Mistake | Rule now |
+|---|---|
+| Left a fabricated fallback (`EPS × 15`) in production code for three versions | Any `?:` in a calculation is a place a fake number can hide. Ask what the null means before substituting. |
+| Wrote four tests from intuition rather than from the algorithm's actual thresholds | Derive expected values from the rule (including its minimum-sample guards), not from what feels right. |
+| Assumed a compile would fit a fixed wall-clock limit | Measure the build time; if it exceeds the call limit, plan for repeated invocations instead of concluding the build is broken. |
+
 ## Impact radius — what touches what
 
 - `MetricCatalog` is the contract for: the query language, the company page ratio list,

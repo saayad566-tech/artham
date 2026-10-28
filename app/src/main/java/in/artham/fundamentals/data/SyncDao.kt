@@ -107,6 +107,19 @@ class SyncDao(private val db: ArthamDb) {
         return t
     }
 
+    data class Failure(val companyId: Long, val message: String, val lastSynced: Long)
+
+    fun failures(limit: Int = 40): List<Failure> {
+        val out = ArrayList<Failure>()
+        r.rawQuery(
+            "SELECT company_id, message, last_synced FROM sync_state WHERE status = 'FAILED' ORDER BY last_synced DESC LIMIT ?",
+            arrayOf(limit.toString())
+        ).use { c ->
+            while (c.moveToNext()) out.add(Failure(c.l("company_id"), c.s("message"), c.l("last_synced")))
+        }
+        return out
+    }
+
     fun failedCount(): Int {
         var n = 0
         r.rawQuery("SELECT COUNT(*) FROM sync_state WHERE status = 'FAILED'", null).use { c ->

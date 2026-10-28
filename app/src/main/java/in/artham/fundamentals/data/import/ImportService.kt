@@ -36,7 +36,7 @@ class ImportService(
     )
 
 
-    fun import(file: File, displayName: String): Outcome {
+    fun import(file: File, displayName: String, snapshotYear: Int? = null): Outcome {
         val warnings = ArrayList<String>()
         val sheets: List<Pair<String, List<List<String>>>> = if (displayName.lowercase().endsWith(".csv")) {
             listOf("CSV" to Csv.read(file))
@@ -152,8 +152,11 @@ class ImportService(
                 }
 
                 nameCol >= 0 -> {
-                    val fyEnd = Calendar.getInstance().get(Calendar.YEAR) - 1
-                    warnings.add("No period column found, so rows were imported as a single period (FY$fyEnd). Verify the year on the company page.")
+                    val fyEnd = snapshotYear ?: Calendar.getInstance().get(Calendar.YEAR) - 1
+                    warnings.add(
+                        "No period column found, so rows were imported as a single period (FY$fyEnd). " +
+                            "If that is the wrong year, set the snapshot year on the Data screen and import again."
+                    )
                     for (r in (headerIdx + 1) until rows.size) {
                         val row = rows[r]
                         val name = row.getOrNull(nameCol)?.trim().orEmpty()
@@ -183,6 +186,23 @@ class ImportService(
             Logx.i("Import", "Imported $companies companies / $annualRows annual rows / $quarterlyRows quarterly rows from $displayName")
         }
         return Outcome(companies, annualRows, quarterlyRows, warnings, mode)
+    }
+
+
+    // ------------------------------------------------------------ price history
+
+    /**
+     * Imports a dated close series for one company, which fills the price chart and makes
+     * price-based backtests possible without a sync. Accepts `date,close` or
+     * `date,open,high,low,close,volume`.
+     */
+    fun importPrices(
+        file: File,
+        displayName: String,
+        onBar: (Long, Double, Double, Double, Double, Long) -> Unit
+    ): SheetParsing.PriceOutcome {
+        val rows = if (displayName.lowercase().endsWith(".csv")) Csv.read(file) else emptyList()
+        return SheetParsing.parsePriceRows(rows, onBar)
     }
 
     // ---------------------------------------------------------------- parsing

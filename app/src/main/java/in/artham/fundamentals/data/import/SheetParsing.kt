@@ -110,4 +110,68 @@ object SheetParsing {
         3 -> 4
         else -> 1
     }
+
+    /** Date formats that actually appear in exported spreadsheets. */
+    fun parseAnyDate(text: String): Long? {
+        val clean = text.trim()
+        if (clean.isEmpty()) return null
+        val patterns = listOf(
+            "yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "dd-MMM-yyyy", "dd MMM yyyy", "MM/dd/yyyy"
+        )
+        for (pattern in patterns) {
+            val parsed = runCatching {
+                val format = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
+                format.isLenient = false
+                format.parse(clean)?.time
+            }.getOrNull()
+            if (parsed != null) return parsed
+        }
+        return null
+    }
+
+    data class PriceOutcome(val bars: Int, val from: String, val to: String, val warnings: List<String>)
+
+    /**
+     * Parses a dated close series from already-read rows. Kept free of file and database
+     * types so the parser is unit-testable on its own.
+     */
+    fun parsePriceRows(
+        rows: List<List<String>>,
+        onBar: (Long, Double, Double, Double, Double, Long) -> Unit
+    ): PriceOutcome {
+        val warnings = ArrayList<String>()
+        if (rows.isEmpty()) return PriceOutcome(0, "", "", listOf("The file contained no readable rows."))
+        val lower = rows.first().map { it.lowercase().trim() }
+        val dateCol = lower.indexOfFirst { it.contains("date") || it.contains("time") }
+        val closeCol = lower.indexOfFirst { it == "close" || it == "price" || it.contains("close") }
+        if (dateCol < 0 || closeCol < 0) {
+            return PriceOutcome(0, "", "", listOf("Expected a date column and a close (or price) column in the header."))
+        }
+        val openCol = lower.indexOfFirst { it == "open" }
+        val highCol = lower.indexOfFirst { it == "high" }
+        val lowCol = lower.indexOfFirst { it == "low" }
+        val volumeCol = lower.indexOfFirst { it == "volume" || it == "vol" }
+
+        var count = 0
+        var first = ""
+        var last = ""
+        for (index in 1 until rows.size) {
+            val row = rows[index]
+            val dateText = row.getOrNull(dateCol)?.trim().orEmpty()
+            val millis = parseAnyDate(dateText) ?: continue
+            val close = parseNumber(row.getOrNull(closeCol)) ?: continue
+            if (close <= 0) continue
+            val open = row.getOrNull(openCol)?.let { parseNumber(it) } ?: close
+            val high = row.getOrNull(highCol)?.let { parseNumber(it) } ?: close
+            val low = row.getOrNull(lowCol)?.let { parseNumber(it) } ?: close
+            val volume = row.getOrNull(volumeCol)?.let { parseNumber(it) }?.toLong() ?: 0L
+            onBar(millis, open, high, low, close, volume)
+            count++
+            if (first.isEmpty()) first = dateText
+            last = dateText
+        }
+        if (count == 0) warnings.add("No row had both a readable date and a positive close.")
+        if (count in 1..19) warnings.add("Only $count bars imported. Charts and indicators need at least 20.")
+        return PriceOutcome(count, first, last, warnings)
+    }
 }

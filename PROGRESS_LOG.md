@@ -71,3 +71,25 @@
    Fixed the method; all 59 pass.
 7. Built and verified the v3.0.0 APK: signed, v2 scheme, four ABIs, live-data classes present
    in the dex.
+
+## Session 4 — audit, 72 features, toolchain
+
+1. Sandbox recycled again; restored v3 from the saved archive and re-provisioned JDK, Gradle
+   and the Android SDK before touching code.
+2. Ran the audit first. It found a fabricated valuation in the portfolio (EPS × 15 for any
+   holding without a quote), two dead locals, a dead function, a no-op click handler, sync
+   failures written to a table nobody displayed, and a silent year assumption in the snapshot
+   importer. All fixed before any feature work.
+3. Added 72 capabilities across metrics, technicals, calculators, portfolio analytics,
+   templates, screens and data integrity — listed in `FEATURES.md`.
+4. Moved the price parser into the pure `SheetParsing` object so it could be tested without a
+   database or a mock; that was a better design than the original placement.
+5. Converted the build to a pinned version catalog.
+6. Compile problems were environmental, not logical: a full cold Kotlin compile now takes
+   about four and a half minutes, which exceeded the call limit, so the build had to be run
+   repeatedly to completion. Recorded in `TOOLCHAIN.md`.
+7. Test run: 92 tests, four failures on the first pass — all wrong expectations in my own new
+   tests (zero-gain portfolios produce zero contribution shares; two positions is below the
+   threshold at which the app will judge concentration; a bad open column does not invalidate
+   a good close; the ROIC fixture lacked pre-tax profit). Corrected the tests, not the code.
+8. Built and verified the v4.0.0 APK: signed, v2 scheme, versionCode 4.

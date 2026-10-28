@@ -69,3 +69,16 @@
     device; distributing the app commercially needs a data licence. See `DATA_SOURCES.md`.
 20. **Still not run on hardware.** Charts, sync and model loading are verified structurally
     and by unit test only.
+
+## Added in v4.0
+
+21. **Technical indicators need synced prices.** Without price bars every technical metric
+    returns null and the technical screens match nothing. The app says so in the UI.
+22. **A full cold build takes about four and a half minutes** on a two-core machine. See
+    `TOOLCHAIN.md`.
+23. **The capital-gains calculator uses post-July-2024 Indian defaults** (20% short term,
+    12.5% long term above ₹1.25 lakh). Tax law changes; the rates are parameters and the UI
+    says they must be confirmed.
+24. **Concentration analysis needs at least three priced positions** before it will judge;
+    below that it says so rather than guessing.
+25. **Still not run on hardware.** Everything is verified structurally and by unit test.

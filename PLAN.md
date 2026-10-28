@@ -61,6 +61,27 @@ Living build plan. Status is cross-checked against the code and the build, not f
 | 45 | 18 further tests on real captured payloads | done | `V3EngineTest.kt`, 59/59 |
 | 46 | v3.0.0 APK compiled, signed, verified | done | 58 MB, versionCode 3 |
 
+## v4.0 — audit wave
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 47 | Audit of v3 for defects, dead code and dishonest numbers | done | `AUDIT.md` |
+| 48 | Fabricated portfolio price removed | done | `PortfolioEngine.kt` |
+| 49 | Dead code, no-op handlers and hidden sync failures fixed | done | audit items B1-B4 |
+| 50 | 28 new metrics, technical included, screenable | done | `Metrics.kt`, 79 total |
+| 51 | Technical engine: RSI, MACD, Bollinger, ATR, momentum, volatility, volume | done | `Technical.kt` |
+| 52 | 11 calculators | done | `Calculators.kt`, `CalculatorsScreen.kt` |
+| 53 | Portfolio concentration and contribution analytics | done | `PortfolioAnalytics.kt` |
+| 54 | 15 new ready-made screens | done | `Templates.kt`, 27 total |
+| 55 | Technical tab with indicator panels | done | `CompanyScreen.kt` |
+| 56 | Glossary generated from the catalogue | done | `GlossaryScreen.kt` |
+| 57 | Price history CSV importer | done | `SheetParsing.parsePriceRows` |
+| 58 | Explicit snapshot import year | done | `ImportService.kt` |
+| 59 | Pinned version catalog | done | `gradle/libs.versions.toml` |
+| 60 | Toolchain setup script, build script, Dockerfile | done | `tools/`, `scripts/`, `Dockerfile` |
+| 61 | 33 further tests | done | `V4EngineTest.kt`, 92 total |
+| 62 | v4.0.0 APK compiled, signed, verified | done | 58 MB, versionCode 4 |
+
 ## Not in v1 (explicitly out of scope)
 
 Spreadsheet export, email alerts, announcements feed, price sync from a live source,

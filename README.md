@@ -105,13 +105,13 @@ Application code: MIT. Model weights: whatever licence their publisher attaches.
 | Check | Result |
 |---|---|
 | `:app:assembleDebug` | BUILD SUCCESSFUL |
-| APK | `artham-3.0.0-debug.apk`, 58 MB, SHA-256 `14bd23d3b1caa4e8531c373c4094aed46c92815fe1d8d3a3ab96e3d600df432b` |
+| APK | `artham-4.0.0-debug.apk`, 58 MB, SHA-256 `4e74f54a10daba6a29f30a4bd9eaed62735293d3d90a41a42478e3a4ab70c1a1` |
 | Signature | APK Signature Scheme v2 verified, Android debug certificate |
-| Package | `in.artham.fundamentals.debug`, versionCode 3, versionName 3.0.0-debug |
+| Package | `in.artham.fundamentals.debug`, versionCode 4, versionName 4.0.0-debug |
 | SDK range | minSdk 24, targetSdk 34, compileSdk 34 |
 | Launcher | `in.artham.fundamentals.MainActivity` |
 | Native code | `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (the MediaPipe LLM engine) |
-| Unit tests | 59 tests, 59 passed, 0 failed |
+| Unit tests | 92 tests, 92 passed, 0 failed |
 
 The APK is 57 MB because it carries the on-device inference engine for four architectures.
 Splitting by ABI in a release build would bring a phone download to roughly 20 MB.
@@ -200,3 +200,46 @@ market cap — corrupting book value, the Graham number and the DCF.
 
 `DATA_SOURCES.md` documents every endpoint, every field mapping, both derived fields, the
 rate limits and the legal position. Read it before you rely on a number.
+
+
+---
+
+## Version 4.0 — the audit wave
+
+An audit ran before anything was added, and it found things that mattered. The worst was in
+the portfolio: a holding with no quote was valued at `EPS × 15`, an invented multiple,
+reported as market value. A made-up number inside a profit figure is the one bug class this
+project refuses to ship. It is now null, the holding is visibly marked unpriced, and it is
+excluded from totals rather than estimated.
+
+Three dead code paths were removed, peer rows on the company page now actually open the peer,
+sync failures are shown instead of being written to a table nobody reads, snapshot imports
+take the year from you rather than assuming one, and price history can be imported from a CSV.
+
+Then 72 new capabilities, listed in `FEATURES.md` with a module for each. The ones that
+change how the app is used:
+
+**79 screenable metrics**, up from 47. The unusual part is that technical indicators are in
+the same vocabulary as fundamentals, so `rsi14 < 35 AND roe > 15` is a valid screen. That
+works because the price series is loaded alongside the financials when a screen runs.
+
+**27 ready-made screens**, up from 12 — momentum, oversold quality, MACD crossovers, low
+volatility, ROIC, distress watch, fortress balance sheets, cash yield, PEG, rising dividends,
+asset-light compounders and more. Every query is compiled in a test, so a template can never
+reference a metric that does not exist.
+
+**A technical tab**: RSI, MACD, Bollinger, ATR, momentum, volatility, distance from the 200
+DMA and volume spike, with RSI history and a MACD histogram.
+
+**Eleven calculators** — SIP, step-up SIP, goal planning, lumpsum, withdrawal depletion,
+capital gains tax, position sizing from a fixed risk, break-even, CAGR conversion and a
+retirement corpus.
+
+**Portfolio analytics**: Herfindahl concentration with an effective-holding count,
+contribution to profit, dividend yield on cost.
+
+**A glossary generated from the metric catalogue**, so it can never drift out of date.
+
+`TOOLCHAIN.md` now lists every version, why it was chosen, what was deliberately left out,
+and the five environment failures this project has actually hit — each of which looks like a
+code error and is not.
