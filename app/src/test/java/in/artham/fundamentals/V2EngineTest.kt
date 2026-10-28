@@ -113,7 +113,7 @@ class V2EngineTest {
         val holding = summary.holdings.first()
         assertEquals(10.0, holding.units, 1e-6)
         assertEquals("remaining lot is the 200 one", 200.0, holding.averageCost, 1e-6)
-        assertEquals(3000.0, holding.marketValue, 1e-6)
+        assertEquals(3000.0, holding.marketValue!!, 1e-6)
     }
 
     @Test
